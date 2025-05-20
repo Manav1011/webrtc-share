@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Share</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #000000 0%, #0B192C 50%, #1E3E62 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #e0e0e0;
+            padding: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .header {
+            background: rgba(30, 62, 98, 0.2);
+            padding: 1.5rem;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 101, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header h1 {
+            color: #FF6500;
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .chat-area {
+            background: rgba(11, 25, 44, 0.3);
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(30, 62, 98, 0.2);
+            position: relative;
+        }
+
+        .chat-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-area::-webkit-scrollbar-thumb {
+            background: rgba(255, 101, 0, 0.3);
+            border-radius: 20px;
+        }
+
+        .chat-area::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 101, 0, 0.5);
+        }
+
+        .input-area {
+            background: rgba(11, 25, 44, 0.3);
+            padding: 1.25rem;
+            border-radius: 20px;
+            display: flex;
+            gap: 1rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(30, 62, 98, 0.2);
+            align-items: center;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 0.875rem 1.25rem;
+            border: 1px solid rgba(30, 62, 98, 0.3);
+            border-radius: 15px;
+            outline: none;
+            font-size: 0.9375rem;
+            transition: all 0.2s ease;
+            background: rgba(11, 25, 44, 0.2);
+            color: #e0e0e0;
+        }
+
+        .message-input:focus {
+            border-color: #FF6500;
+            box-shadow: 0 0 0 2px rgba(255, 101, 0, 0.1);
+        }
+
+        .message-input::placeholder {
+            color: rgba(224, 224, 224, 0.4);
+        }
+
+        .file-upload {
+            display: none;
+        }
+
+        .upload-btn, .send-btn {
+            background: #FF6500;
+            color: white;
+            padding: 0.875rem 1.25rem;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 0.9375rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 44px;
+            justify-content: center;
+        }
+
+        .upload-btn:hover, .send-btn:hover {
+            background: #ff7518;
+            transform: translateY(-1px);
+        }
+
+        .upload-btn:active, .send-btn:active {
+            transform: translateY(0);
+        }
+
+        .message {
+            padding: 1rem 1.25rem;
+            border-radius: 15px;
+            max-width: 75%;
+            word-wrap: break-word;
+            animation: fadeIn 0.2s ease;
+            position: relative;
+            font-size: 0.9375rem;
+            line-height: 1.5;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.text {
+            background: rgba(30, 62, 98, 0.3);
+            align-self: flex-start;
+            margin: 0.25rem 0;
+        }
+
+        .message.file {
+            background: rgba(11, 25, 44, 0.4);
+            align-self: flex-start;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 0.25rem 0;
+        }
+
+        .file-icon {
+            font-size: 1.25rem;
+            color: #FF6500;
+        }
+
+        .empty-chat {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: rgba(224, 224, 224, 0.3);
+            font-size: 0.9375rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.75rem;
+                gap: 0.75rem;
+            }
+
+            .header {
+                padding: 1.25rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .input-area {
+                padding: 1rem;
+                flex-wrap: nowrap;
+            }
+
+            .message-input {
+                padding: 0.75rem 1rem;
+            }
+
+            .upload-btn, .send-btn {
+                padding: 0.75rem;
+            }
+
+            .message {
+                max-width: 85%;
+                padding: 0.875rem 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0.5rem;
+                gap: 0.5rem;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+
+            .upload-btn span, .send-btn span {
+                display: none;
+            }
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .connection-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        #peerIdInput {
+            width: 200px;
+            font-size: 0.875rem;
+        }
+
+        #peerId {
+            color: #FF6500;
+            font-weight: 500;
+        }
+
+        .message.system {
+            background: rgba(255, 101, 0, 0.1);
+            color: rgba(224, 224, 224, 0.7);
+            align-self: center;
+            font-size: 0.875rem;
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background: rgba(255, 101, 0, 0.2);
+        }
+
+        .message.received {
+            align-self: flex-start;
+            background: rgba(30, 62, 98, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .connection-status {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .connection-controls {
+                flex-wrap: wrap;
+            }
+
+            #peerIdInput {
+                width: 100%;
+            }
+        }
+
+        .file-progress {
+            position: relative;
+            width: 100%;
+            height: 4px;
+            background: rgba(30, 62, 98, 0.3);
+            border-radius: 2px;
+            margin-top: 8px;
+        }
+
+        .file-progress-bar {
+            position: absolute;
+            height: 100%;
+            background: #FF6500;
+            border-radius: 2px;
+            transition: width 0.2s ease;
+        }
+
+        .file-message {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .file-message:hover {
+            background-color: rgba(255, 101, 0, 0.1);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-size {
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+
+        .file-download-btn {
+            background: none;
+            border: none;
+            color: #FF6500;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .file-download-btn:hover {
+            background: rgba(255, 101, 0, 0.1);
+        }
+
+        .timestamp {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-right: 8px;
+        }
+        
+        .message.system {
+            font-size: 0.875rem;
+            padding: 8px 12px;
+            margin: 4px 0;
+            background: rgba(255, 101, 0, 0.1);
+            border-radius: 8px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+        }
+
+        .media-preview {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .media-preview img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+
+        .media-preview video {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+
+        .message.file.with-preview {
+            max-width: 320px;
+        }
+
+        .download-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(11, 25, 44, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 101, 0, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 300px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .download-dialog.show {
+            display: flex;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .dialog-button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s ease;
+        }
+
+        .dialog-button.primary {
+            background: #FF6500;
+            color: white;
+        }
+
+        .dialog-button.secondary {
+            background: rgba(30, 62, 98, 0.3);
+            color: #e0e0e0;
+        }
+
+        .dialog-button:hover {
+            transform: translateY(-1px);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(3px);
+            z-index: 999;
+            display: none;
+        }
+
+        .overlay.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    <div class="download-dialog" id="downloadDialog">
+        <h3>Download File</h3>
+        <p>Do you want to download this file?</p>
+        <div class="dialog-buttons">
+            <button class="dialog-button secondary" onclick="hideDownloadDialog()">Cancel</button>
+            <button class="dialog-button primary" id="confirmDownload">Yes, Download</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>WebRTC Share</h1>
+            <div class="connection-status">
+                <span id="peerId"></span>
+                <div class="connection-controls">
+                    <input type="text" id="peerIdInput" placeholder="Enter peer ID to connect..." class="message-input">
+                    <button class="send-btn" onclick="connectToPeer()">Connect</button>
+                </div>
+            </div>
+        </div>
+        <div class="chat-area" id="chatArea">
+            <div class="empty-chat">No messages yet. Start sharing!</div>
+        </div>
+        <div class="input-area">
+            <input type="text" class="message-input" id="messageInput" placeholder="Type your message...">
+            <input type="file" id="fileInput" class="file-upload">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                📎 <span>Upload</span>
+            </button>
+            <button class="send-btn" onclick="sendMessage()">
+                ➤ <span>Send</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        let peer;
+        let conn;
+        const chatArea = document.getElementById('chatArea');
+        const messageInput = document.getElementById('messageInput');
+        const fileInput = document.getElementById('fileInput');
+        const emptyChat = document.querySelector('.empty-chat');
+        const peerIdElement = document.getElementById('peerId');
+        const peerIdInput = document.getElementById('peerIdInput');
+
+        const MIN_CHUNK_SIZE = 65536; // 64KB minimum
+        const MAX_CHUNK_SIZE = 1048576; // 1MB maximum
+        const MAX_MEMORY_USAGE = 1.5 * 1024 * 1024 * 1024; // 1.5GB max memory usage
+        let currentChunkSize = MIN_CHUNK_SIZE;
+        const SPEED_MEASUREMENT_INTERVAL = 1000; // 1 second
+        const MAX_PENDING_CHUNKS = 64; // Maximum chunks in flight
+        
+        let fileQueue = [];
+        let isTransferring = false;
+        let lastTransferTime = Date.now();
+        let bytesTransferred = 0;
+        let pendingChunks = 0;
+
+        // Function to measure and adjust chunk size
+        function adjustChunkSize(bytesSent, timeTaken) {
+            const speedMbps = (bytesSent * 8) / (timeTaken * 1000); // Convert to Mbps
+            console.log(`Current transfer speed: ${speedMbps.toFixed(2)} Mbps`);
+
+            if (timeTaken < 200 && currentChunkSize < MAX_CHUNK_SIZE) {
+                // Transfer is very fast, increase chunk size more aggressively
+                currentChunkSize = Math.min(currentChunkSize * 2, MAX_CHUNK_SIZE);
+                console.log(`Increasing chunk size to: ${formatFileSize(currentChunkSize)}`);
+            } else if (timeTaken > 500 && currentChunkSize > MIN_CHUNK_SIZE) {
+                // Transfer is slow, decrease chunk size
+                currentChunkSize = Math.max(currentChunkSize / 2, MIN_CHUNK_SIZE);
+                console.log(`Decreasing chunk size to: ${formatFileSize(currentChunkSize)}`);
+            }
+        }
+
+        // Initialize PeerJS
+        function initializePeer() {
+            // Generate a random 4-character ID
+            const randomId = Math.random().toString(36).substring(2, 6);
+            
+            peer = new Peer(randomId, {
+                host: '0.peerjs.com',
+                port: 443,
+                secure: true,
+                debug: 2,
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478' }
+                    ]
+                }
+            });
+
+            peer.on('open', (id) => {
+                peerIdElement.textContent = `Your ID: ${id}`;
+                console.log('My peer ID is:', id);
+                addSystemMessage(`Connected to server. Your ID: ${id}`);
+            });
+
+            peer.on('connection', (connection) => {
+                conn = connection;
+                setupConnection();
+                addSystemMessage(`Connected to peer: ${conn.peer}`);
+            });
+
+            peer.on('error', (err) => {
+                console.error('PeerJS error:', err);
+                addSystemMessage(`Connection error: ${err.type}`);
+                
+                // Handle specific error types
+                if (err.type === 'peer-unavailable') {
+                    addSystemMessage('Peer not found or not connected');
+                } else if (err.type === 'disconnected') {
+                    addSystemMessage('Disconnected from server. Trying to reconnect...');
+                    peer.reconnect();
+                } else if (err.type === 'network') {
+                    addSystemMessage('Network connection error. Check your internet connection');
+                }
+            });
+
+            peer.on('disconnected', () => {
+                addSystemMessage('Disconnected from server. Click to reconnect');
+                peerIdElement.innerHTML = `<span style="cursor: pointer; text-decoration: underline" onclick="peer.reconnect()">Reconnect</span>`;
+            });
+
+            peer.on('close', () => {
+                addSystemMessage('Connection destroyed. Please refresh the page');
+                conn = null;
+            });
+        }
+
+        // Connect to another peer
+        function connectToPeer() {
+            const peerId = peerIdInput.value.trim();
+            if (!peerId) {
+                addSystemMessage('Please enter a peer ID');
+                return;
+            }
+
+            if (peer.disconnected) {
+                addSystemMessage('Not connected to server. Please reconnect first');
+                return;
+            }
+
+            try {
+                addSystemMessage(`Connecting to peer: ${peerId}...`);
+                conn = peer.connect(peerId, {
+                    reliable: true
+                });
+                setupConnection();
+                peerIdInput.value = '';
+            } catch (err) {
+                console.error('Connection error:', err);
+                addSystemMessage(`Failed to connect: ${err.message}`);
+            }
+        }
+
+        // Setup connection event handlers
+        function setupConnection() {
+            conn.on('open', () => {
+                addSystemMessage(`Connected to peer: ${conn.peer}`);
+            });
+
+            conn.on('data', (data) => {
+                console.log('Received data:', data.type);
+                if (data.type === 'text') {
+                    addMessageToChat(data.content, 'text', 'received');
+                } else if (data.type === 'file-meta' || data.type === 'file-chunk') {
+                    handleReceivedFile(data);
+                }
+            });
+
+            conn.on('close', () => {
+                addSystemMessage('Peer disconnected');
+                conn = null;
+            });
+
+            conn.on('error', (err) => {
+                console.error('Connection error:', err);
+                addSystemMessage(`Connection error: ${err.message}`);
+            });
+        }
+
+        // Send text message
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            if (conn && conn.open) {
+                conn.send({
+                    type: 'text',
+                    content: message
+                });
+                addMessageToChat(message, 'text', 'sent');
+                messageInput.value = '';
+                hideEmptyChat();
+            } else {
+                addSystemMessage('Not connected to a peer');
+            }
+        }
+
+        // Function to format file size with appropriate units
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+        }
+
+        // Function to check if file size is manageable
+        function isFileSizeManageable(fileSize) {
+            if (fileSize > MAX_MEMORY_USAGE) {
+                const maxSize = formatFileSize(MAX_MEMORY_USAGE);
+                addSystemMessage(`⚠️ File is too large. Maximum recommended size is ${maxSize} to ensure stable transfer.`);
+                return false;
+            }
+            return true;
+        }
+
+        // Modified file upload handler with size checks
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file || !conn || !conn.open) {
+                addSystemMessage('No connection available for file transfer');
+                return;
+            }
+
+            // Check file size
+            if (!isFileSizeManageable(file.size)) {
+                return;
+            }
+
+            try {
+                console.log(`Starting file transfer: ${file.name} (${formatFileSize(file.size)})`);
+                addSystemMessage(`📤 Starting to send file: ${file.name} (${formatFileSize(file.size)})`);
+                const messageDiv = addMessageToChat(file.name, 'file', 'sent');
+                const progressBar = createProgressBar(messageDiv);
+                
+                const fileId = Math.random().toString(36).substring(2);
+                let offset = 0;
+                let lastMeasurement = Date.now();
+                bytesTransferred = 0;
+                pendingChunks = 0;
+                
+                // Send file metadata
+                conn.send({
+                    type: 'file-meta',
+                    id: fileId,
+                    name: file.name,
+                    size: file.size
+                });
+
+                // Function to send a single chunk
+                async function sendChunk(chunkOffset) {
+                    if (chunkOffset >= file.size) return;
+                    
+                    const chunk = file.slice(chunkOffset, chunkOffset + currentChunkSize);
+                    const arrayBuffer = await chunk.arrayBuffer();
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    
+                    conn.send({
+                        type: 'file-chunk',
+                        id: fileId,
+                        chunk: uint8Array,
+                        offset: chunkOffset,
+                        size: file.size
+                    });
+
+                    bytesTransferred += chunk.size;
+                    const progress = (chunkOffset / file.size) * 100;
+                    updateProgress(progressBar, progress);
+                    
+                    return chunk.size;
+                }
+
+                // Send chunks in parallel
+                while (offset < file.size) {
+                    const chunkPromises = [];
+                    
+                    // Send multiple chunks in parallel
+                    while (pendingChunks < MAX_PENDING_CHUNKS && offset < file.size) {
+                        chunkPromises.push(sendChunk(offset));
+                        offset += currentChunkSize;
+                        pendingChunks++;
+                    }
+                    
+                    // Wait for current batch of chunks to complete
+                    await Promise.all(chunkPromises);
+                    pendingChunks = 0;
+
+                    // Measure and adjust chunk size
+                    const now = Date.now();
+                    if (now - lastMeasurement >= SPEED_MEASUREMENT_INTERVAL) {
+                        adjustChunkSize(bytesTransferred, now - lastMeasurement);
+                        bytesTransferred = 0;
+                        lastMeasurement = now;
+                    }
+                }
+
+                updateProgress(progressBar, 100);
+                console.log('File transfer completed:', file.name);
+                addSystemMessage(`✅ File transfer completed: ${file.name}`);
+
+            } catch (err) {
+                console.error('File transfer error:', err);
+                addSystemMessage(`❌ File transfer failed: ${err.message}`);
+            }
+        });
+
+        // Initialize fileReceivers Map
+        const fileReceivers = new Map();
+
+        // Modified file receiver to handle memory management
+        function handleReceivedFile(data) {
+            if (data.type === 'file-meta') {
+                // Check if incoming file size is manageable
+                if (!isFileSizeManageable(data.size)) {
+                    conn.send({
+                        type: 'file-reject',
+                        id: data.id,
+                        reason: 'File size too large'
+                    });
+                    return;
+                }
+
+                console.log(`Receiving file: ${data.name} (${formatFileSize(data.size)})`);
+                addSystemMessage(`📥 Receiving file: ${data.name} (${formatFileSize(data.size)})`);
+                
+                fileReceivers.set(data.id, {
+                    name: data.name,
+                    size: data.size,
+                    chunks: new Map(),
+                    receivedBytes: 0,
+                    messageDiv: addMessageToChat(data.name, 'file', 'received'),
+                    startTime: Date.now()
+                });
+
+                const receiver = fileReceivers.get(data.id);
+                receiver.progressBar = createProgressBar(receiver.messageDiv);
+                
+            } else if (data.type === 'file-chunk') {
+                const receiver = fileReceivers.get(data.id);
+                if (!receiver) {
+                    console.error('No receiver found for file:', data.id);
+                    return;
+                }
+
+                const chunk = new Uint8Array(data.chunk);
+                receiver.chunks.set(data.offset, chunk);
+                receiver.receivedBytes += chunk.length;
+
+                const progress = (receiver.receivedBytes / receiver.size) * 100;
+                updateProgress(receiver.progressBar, progress);
+
+                // Calculate and show transfer speed
+                const elapsedSeconds = (Date.now() - receiver.startTime) / 1000;
+                const speedMBps = (receiver.receivedBytes / (1024 * 1024)) / elapsedSeconds;
+                console.log(`Transfer speed: ${speedMBps.toFixed(2)} MB/s`);
+
+                // Check if file is complete
+                if (receiver.receivedBytes >= receiver.size) {
+                    console.log('File reception complete, processing...');
+                    completeFileTransfer(receiver);
+                }
+            } else if (data.type === 'file-reject') {
+                addSystemMessage(`❌ File transfer rejected: ${data.reason}`);
+            }
+        }
+
+        // Function to get file type
+        function getFileType(fileName) {
+            const extension = fileName.toLowerCase().split('.').pop();
+            const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            const videoTypes = ['mp4', 'webm', 'ogg'];
+            const pdfType = ['pdf'];
+            
+            if (imageTypes.includes(extension)) return 'image';
+            if (videoTypes.includes(extension)) return 'video';
+            if (pdfType.includes(extension)) return 'pdf';
+            return 'other';
+        }
+
+        // Function to get MIME type
+        function getMimeType(fileName) {
+            const extension = fileName.toLowerCase().split('.').pop();
+            const mimeTypes = {
+                // Images
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'webp': 'image/webp',
+                // Videos
+                'mp4': 'video/mp4',
+                'webm': 'video/webm',
+                'ogg': 'video/ogg',
+                // PDFs
+                'pdf': 'application/pdf',
+                // Default
+                'default': 'application/octet-stream'
+            };
+            return mimeTypes[extension] || mimeTypes.default;
+        }
+
+        // Modified addMessageToChat for media preview
+        function addMessageToChat(content, type, direction = 'sent') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type} ${direction}`;
+            
+            if (type === 'file') {
+                const fileType = getFileType(content);
+                if (fileType === 'image' || fileType === 'video') {
+                    messageDiv.className += ' with-preview';
+                }
+                
+                const size = content.size ? `(${formatFileSize(content.size)})` : '';
+                messageDiv.className += ' file-message';
+                messageDiv.innerHTML = `
+                    <div class="file-info">
+                        <span class="file-icon">📎</span>
+                        <span>${content}</span>
+                        <span class="file-size">${size}</span>
+                    </div>
+                `;
+
+                if (fileType === 'image' || fileType === 'video') {
+                    const previewContainer = document.createElement('div');
+                    previewContainer.className = 'media-preview';
+                    messageDiv.appendChild(previewContainer);
+                }
+            } else {
+                messageDiv.textContent = content;
+            }
+            
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            hideEmptyChat();
+            
+            return messageDiv;
+        }
+
+        // Add system message
+        function addSystemMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system';
+            messageDiv.innerHTML = `<span class="timestamp">${timestamp}</span> ${message}`;
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            hideEmptyChat();
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function hideEmptyChat() {
+            if (emptyChat) {
+                emptyChat.style.display = 'none';
+            }
+        }
+
+        // Create progress bar element
+        function createProgressBar(messageDiv) {
+            const progressContainer = document.createElement('div');
+            progressContainer.className = 'file-progress';
+            
+            const progressBar = document.createElement('div');
+            progressBar.className = 'file-progress-bar';
+            progressBar.style.width = '0%';
+            
+            progressContainer.appendChild(progressBar);
+            messageDiv.appendChild(progressContainer);
+            
+            return progressBar;
+        }
+
+        // Update progress bar
+        function updateProgress(progressBar, percent) {
+            progressBar.style.width = `${percent}%`;
+        }
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Initialize PeerJS when the page loads
+        initializePeer();
+
+        function showDownloadDialog(url, fileName, fileType) {
+            const dialog = document.getElementById('downloadDialog');
+            const overlay = document.getElementById('overlay');
+            const confirmBtn = document.getElementById('confirmDownload');
+
+            // For supported file types, open directly in new tab
+            if (['image', 'video', 'pdf'].includes(fileType)) {
+                window.open(url, '_blank');
+                return;
+            }
+
+            // Show download dialog only for non-viewable files
+            dialog.querySelector('p').textContent = `Do you want to download ${fileName}?`;
+            dialog.classList.add('show');
+            overlay.classList.add('show');
+
+            confirmBtn.onclick = () => {
+                hideDownloadDialog();
+                // Trigger download for non-viewable files
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.click();
+            };
+        }
+
+        function hideDownloadDialog() {
+            const dialog = document.getElementById('downloadDialog');
+            const overlay = document.getElementById('overlay');
+            dialog.classList.remove('show');
+            overlay.classList.remove('show');
+        }
+
+        // Modified completeFileTransfer to handle cleanup
+        function completeFileTransfer(receiver) {
+            try {
+                const transferTime = (Date.now() - receiver.startTime) / 1000;
+                const averageSpeed = (receiver.size / (1024 * 1024)) / transferTime;
+                console.log(`File transfer completed in ${transferTime.toFixed(1)}s at ${averageSpeed.toFixed(2)} MB/s`);
+
+                // Create a sorted array of chunks
+                const sortedChunks = Array.from(receiver.chunks.entries())
+                    .sort(([offsetA], [offsetB]) => offsetA - offsetB)
+                    .map(([_, chunk]) => chunk);
+
+                const combinedArray = new Uint8Array(receiver.size);
+                let offset = 0;
+                
+                for (const chunk of sortedChunks) {
+                    combinedArray.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                const mimeType = getMimeType(receiver.name);
+                const blob = new Blob([combinedArray], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+
+                // Add preview for images and videos
+                const fileType = getFileType(receiver.name);
+                const previewContainer = receiver.messageDiv.querySelector('.media-preview');
+                
+                if (previewContainer) {
+                    if (fileType === 'image') {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = receiver.name;
+                        previewContainer.appendChild(img);
+                    } else if (fileType === 'video') {
+                        const video = document.createElement('video');
+                        video.src = url;
+                        video.controls = true;
+                        previewContainer.appendChild(video);
+                    }
+                }
+
+                // Make the entire message clickable for opening/downloading
+                receiver.messageDiv.onclick = (e) => {
+                    // Prevent click when clicking on video controls
+                    if (e.target.tagName === 'VIDEO') return;
+                    showDownloadDialog(url, receiver.name, fileType);
+                };
+
+                // Update button text and behavior based on file type
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'file-download-btn';
+                
+                if (['image', 'video', 'pdf'].includes(fileType)) {
+                    downloadBtn.innerHTML = '👁️ View';
+                } else {
+                    downloadBtn.innerHTML = '⬇️ Download';
+                }
+
+                downloadBtn.onclick = (e) => {
+                    e.stopPropagation(); // Prevent triggering the message click
+                    showDownloadDialog(url, receiver.name, fileType);
+                };
+
+                receiver.messageDiv.querySelector('.file-info').appendChild(downloadBtn);
+                updateProgress(receiver.progressBar, 100);
+                console.log('File ready:', receiver.name);
+                
+                // Cleanup
+                receiver.chunks.clear();
+                fileReceivers.delete(receiver.id);
+            } catch (err) {
+                console.error('Error processing received file:', err);
+                addSystemMessage(`❌ Error processing file: ${err.message}`);
+            }
+        }
+    </script>
+</body>
+</html> 
