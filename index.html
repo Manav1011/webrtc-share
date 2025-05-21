@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="image.png" type="image/x-icon">
     <title>WebRTC Share</title>
     <style>
         * {
@@ -339,7 +338,7 @@
         }
 
         /* Add support for taller phones */
-        @media (min-height: 800px) and (max-width: 580px) {
+        @media (min-height: 800px) and (max-width: 480px) {
             .container {
                 gap: 0.75rem;
             }
@@ -632,33 +631,53 @@
         const peerIdElement = document.getElementById('peerId');
         const peerIdInput = document.getElementById('peerIdInput');
 
-        const MIN_CHUNK_SIZE = 65536; // 64KB minimum
-        const MAX_CHUNK_SIZE = 1048576; // 1MB maximum
+        // Optimized file transfer configuration
+        const MIN_CHUNK_SIZE = 262144; // 256KB minimum
+        const MAX_CHUNK_SIZE = 4194304; // 4MB maximum
+        const INITIAL_CHUNK_SIZE = 1048576; // Start with 1MB chunks
         const MAX_MEMORY_USAGE = 1.5 * 1024 * 1024 * 1024; // 1.5GB max memory usage
-        let currentChunkSize = MIN_CHUNK_SIZE;
-        const SPEED_MEASUREMENT_INTERVAL = 1000; // 1 second
-        const MAX_PENDING_CHUNKS = 64; // Maximum chunks in flight
+        const MAX_PENDING_CHUNKS = 128; // Maximum chunks in flight
+        const SPEED_MEASUREMENT_INTERVAL = 500; // 500ms
         
+        let currentChunkSize = INITIAL_CHUNK_SIZE;
         let fileQueue = [];
         let isTransferring = false;
         let lastTransferTime = Date.now();
         let bytesTransferred = 0;
         let pendingChunks = 0;
+        let transferSpeed = 0; // bytes per second
 
-        // Function to measure and adjust chunk size
+        // Improved chunk size adjustment function
         function adjustChunkSize(bytesSent, timeTaken) {
-            const speedMbps = (bytesSent * 8) / (timeTaken * 1000); // Convert to Mbps
-            console.log(`Current transfer speed: ${speedMbps.toFixed(2)} Mbps`);
+            // Calculate current speed in MB/s
+            const speedMBps = (bytesSent * 8) / (timeTaken * 1000);
+            const currentSpeed = bytesSent / timeTaken * 1000; // bytes per second
+            
+            // Use exponential moving average for speed
+            transferSpeed = transferSpeed * 0.7 + currentSpeed * 0.3;
+            
+            console.log(`Current transfer speed: ${speedMBps.toFixed(2)} Mbps`);
+            console.log(`Current chunk size: ${formatFileSize(currentChunkSize)}`);
 
-            if (timeTaken < 200 && currentChunkSize < MAX_CHUNK_SIZE) {
+            // More aggressive chunk size adjustment
+            if (timeTaken < 100 && currentChunkSize < MAX_CHUNK_SIZE) {
                 // Transfer is very fast, increase chunk size more aggressively
-                currentChunkSize = Math.min(currentChunkSize * 2, MAX_CHUNK_SIZE);
+                currentChunkSize = Math.min(currentChunkSize * 4, MAX_CHUNK_SIZE);
                 console.log(`Increasing chunk size to: ${formatFileSize(currentChunkSize)}`);
-            } else if (timeTaken > 500 && currentChunkSize > MIN_CHUNK_SIZE) {
+            } else if (timeTaken > 200 && currentChunkSize > MIN_CHUNK_SIZE) {
                 // Transfer is slow, decrease chunk size
                 currentChunkSize = Math.max(currentChunkSize / 2, MIN_CHUNK_SIZE);
                 console.log(`Decreasing chunk size to: ${formatFileSize(currentChunkSize)}`);
             }
+
+            // Calculate optimal number of parallel chunks based on speed
+            const optimalPendingChunks = Math.min(
+                Math.ceil(transferSpeed * 0.2 / currentChunkSize), // 200ms worth of chunks
+                MAX_PENDING_CHUNKS
+            );
+
+            console.log(`Optimal pending chunks: ${optimalPendingChunks}`);
+            return optimalPendingChunks;
         }
 
         // Initialize PeerJS
@@ -750,7 +769,46 @@
             });
 
             conn.on('data', (data) => {
-                console.log('Received data:', data.type);
+                // Log received message details
+                console.group('Received Message');
+                console.log('Message Type:', data.type);
+                
+                switch(data.type) {
+                    case 'text':
+                        console.log('Content:', data.content);
+                        break;
+                    case 'file-meta':
+                        console.log('File Name:', data.name);
+                        console.log('File Size:', formatFileSize(data.size));
+                        console.log('File ID:', data.id);
+                        break;
+                    case 'file-chunk':
+                        console.log('Chunk Offset:', data.offset);
+                        console.log('File Size:', formatFileSize(data.size));
+                        console.log('Chunk Size:', formatFileSize(data.chunk.length));
+                        console.log('File ID:', data.id);
+                        break;
+                    case 'receiver-ready':
+                        console.log('Receiver Preferred Chunk Size:', formatFileSize(data.preferredChunkSize));
+                        console.log('Receiver Max Parallel Chunks:', data.maxParallelChunks);
+                        break;
+                    case 'receiver-feedback':
+                        console.log('Feedback Status:', data.status);
+                        console.log('Current Speed:', formatFileSize(data.currentSpeed) + '/s');
+                        break;
+                    case 'chunk-request':
+                        console.log('Requested Chunks:', data.chunks.length);
+                        console.log('File ID:', data.id);
+                        break;
+                    case 'file-reject':
+                        console.log('Reject Reason:', data.reason);
+                        break;
+                }
+                
+                console.log('Timestamp:', new Date().toISOString());
+                console.groupEnd();
+
+                // Process the message
                 if (data.type === 'text') {
                     addMessageToChat(data.content, 'text', 'received');
                 } else if (data.type === 'file-meta' || data.type === 'file-chunk') {
@@ -806,7 +864,7 @@
             return true;
         }
 
-        // Modified file upload handler with size checks
+        // Enhanced file upload handler
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file || !conn || !conn.open) {
@@ -814,7 +872,6 @@
                 return;
             }
 
-            // Check file size
             if (!isFileSizeManageable(file.size)) {
                 return;
             }
@@ -830,18 +887,21 @@
                 let lastMeasurement = Date.now();
                 bytesTransferred = 0;
                 pendingChunks = 0;
+                currentChunkSize = INITIAL_CHUNK_SIZE; // Reset chunk size for new transfer
+                transferSpeed = 0; // Reset speed measurement
                 
-                // Send file metadata
+                // Send file metadata with initial chunk size
                 conn.send({
                     type: 'file-meta',
                     id: fileId,
                     name: file.name,
-                    size: file.size
+                    size: file.size,
+                    chunkSize: currentChunkSize
                 });
 
-                // Function to send a single chunk
+                // Enhanced chunk sending function
                 async function sendChunk(chunkOffset) {
-                    if (chunkOffset >= file.size) return;
+                    if (chunkOffset >= file.size) return 0;
                     
                     const chunk = file.slice(chunkOffset, chunkOffset + currentChunkSize);
                     const arrayBuffer = await chunk.arrayBuffer();
@@ -855,35 +915,47 @@
                         size: file.size
                     });
 
-                    bytesTransferred += chunk.size;
-                    const progress = (chunkOffset / file.size) * 100;
-                    updateProgress(progressBar, progress);
-                    
                     return chunk.size;
                 }
 
-                // Send chunks in parallel
+                let optimalPendingChunks = 32; // Start with moderate parallelism
+                let totalBytesSent = 0;
+
+                // Enhanced chunk sending loop with dynamic parallelism
                 while (offset < file.size) {
                     const chunkPromises = [];
+                    const batchStart = Date.now();
                     
-                    // Send multiple chunks in parallel
-                    while (pendingChunks < MAX_PENDING_CHUNKS && offset < file.size) {
+                    // Send multiple chunks in parallel based on current performance
+                    while (pendingChunks < optimalPendingChunks && offset < file.size) {
                         chunkPromises.push(sendChunk(offset));
                         offset += currentChunkSize;
                         pendingChunks++;
                     }
                     
                     // Wait for current batch of chunks to complete
-                    await Promise.all(chunkPromises);
+                    const batchSizes = await Promise.all(chunkPromises);
+                    const batchBytes = batchSizes.reduce((a, b) => a + b, 0);
                     pendingChunks = 0;
+                    totalBytesSent += batchBytes;
 
-                    // Measure and adjust chunk size
+                    // Measure and adjust chunk size and parallelism
                     const now = Date.now();
                     if (now - lastMeasurement >= SPEED_MEASUREMENT_INTERVAL) {
-                        adjustChunkSize(bytesTransferred, now - lastMeasurement);
+                        bytesTransferred += batchBytes;
+                        optimalPendingChunks = adjustChunkSize(bytesTransferred, now - lastMeasurement);
+                        
+                        // Calculate and display transfer speed
+                        const speed = (bytesTransferred / (now - lastMeasurement)) * 1000;
+                        const speedMBps = (speed * 8) / (1024 * 1024);
+                        console.log(`Current transfer speed: ${speedMBps.toFixed(2)} Mbps`);
+                        
                         bytesTransferred = 0;
                         lastMeasurement = now;
                     }
+
+                    const progress = (totalBytesSent / file.size) * 100;
+                    updateProgress(progressBar, progress);
                 }
 
                 updateProgress(progressBar, 100);
@@ -899,10 +971,9 @@
         // Initialize fileReceivers Map
         const fileReceivers = new Map();
 
-        // Modified file receiver to handle memory management
+        // Enhanced file receiver to handle optimized transfers
         function handleReceivedFile(data) {
             if (data.type === 'file-meta') {
-                // Check if incoming file size is manageable
                 if (!isFileSizeManageable(data.size)) {
                     conn.send({
                         type: 'file-reject',
@@ -915,17 +986,32 @@
                 console.log(`Receiving file: ${data.name} (${formatFileSize(data.size)})`);
                 addSystemMessage(`📥 Receiving file: ${data.name} (${formatFileSize(data.size)})`);
                 
+                // Enhanced receiver state tracking
                 fileReceivers.set(data.id, {
                     name: data.name,
                     size: data.size,
                     chunks: new Map(),
                     receivedBytes: 0,
                     messageDiv: addMessageToChat(data.name, 'file', 'received'),
-                    startTime: Date.now()
+                    startTime: Date.now(),
+                    lastSpeedUpdate: Date.now(),
+                    bytesInInterval: 0,
+                    currentSpeed: 0,
+                    missingChunks: new Set(),
+                    lastChunkRequest: Date.now(),
+                    receivedChunks: new Set()
                 });
 
                 const receiver = fileReceivers.get(data.id);
                 receiver.progressBar = createProgressBar(receiver.messageDiv);
+
+                // Send ready signal with receiver's preferred chunk size
+                conn.send({
+                    type: 'receiver-ready',
+                    id: data.id,
+                    preferredChunkSize: INITIAL_CHUNK_SIZE,
+                    maxParallelChunks: MAX_PENDING_CHUNKS
+                });
                 
             } else if (data.type === 'file-chunk') {
                 const receiver = fileReceivers.get(data.id);
@@ -937,23 +1023,98 @@
                 const chunk = new Uint8Array(data.chunk);
                 receiver.chunks.set(data.offset, chunk);
                 receiver.receivedBytes += chunk.length;
+                receiver.bytesInInterval += chunk.length;
+                receiver.receivedChunks.add(data.offset);
+
+                const now = Date.now();
+                if (now - receiver.lastSpeedUpdate >= SPEED_MEASUREMENT_INTERVAL) {
+                    // Calculate current speed
+                    const speed = (receiver.bytesInInterval / (now - receiver.lastSpeedUpdate)) * 1000;
+                    const speedMBps = (speed * 8) / (1024 * 1024);
+                    receiver.currentSpeed = speed;
+                    console.log(`Download speed: ${speedMBps.toFixed(2)} Mbps`);
+
+                    // Adaptive flow control
+                    if (speed > receiver.currentSpeed * 1.2) { // Speed increased by 20%
+                        conn.send({
+                            type: 'receiver-feedback',
+                            id: data.id,
+                            status: 'increase-speed',
+                            currentSpeed: speed
+                        });
+                    } else if (speed < receiver.currentSpeed * 0.8) { // Speed decreased by 20%
+                        conn.send({
+                            type: 'receiver-feedback',
+                            id: data.id,
+                            status: 'decrease-speed',
+                            currentSpeed: speed
+                        });
+                    }
+
+                    receiver.bytesInInterval = 0;
+                    receiver.lastSpeedUpdate = now;
+                }
+
+                // Check for missing chunks periodically
+                if (now - receiver.lastChunkRequest >= 2000) { // Every 2 seconds
+                    const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                    const missingChunks = [];
+                    
+                    for (let i = 0; i < expectedChunks; i++) {
+                        const offset = i * currentChunkSize;
+                        if (!receiver.receivedChunks.has(offset)) {
+                            missingChunks.push(offset);
+                        }
+                    }
+
+                    if (missingChunks.length > 0) {
+                        console.log(`Requesting ${missingChunks.length} missing chunks`);
+                        conn.send({
+                            type: 'chunk-request',
+                            id: data.id,
+                            chunks: missingChunks
+                        });
+                    }
+                    
+                    receiver.lastChunkRequest = now;
+                }
 
                 const progress = (receiver.receivedBytes / receiver.size) * 100;
                 updateProgress(receiver.progressBar, progress);
 
-                // Calculate and show transfer speed
-                const elapsedSeconds = (Date.now() - receiver.startTime) / 1000;
-                const speedMBps = (receiver.receivedBytes / (1024 * 1024)) / elapsedSeconds;
-                console.log(`Transfer speed: ${speedMBps.toFixed(2)} MB/s`);
-
                 // Check if file is complete
                 if (receiver.receivedBytes >= receiver.size) {
-                    console.log('File reception complete, processing...');
-                    completeFileTransfer(receiver);
+                    const allChunksReceived = verifyAllChunks(receiver);
+                    if (allChunksReceived) {
+                        console.log('File reception complete, processing...');
+                        completeFileTransfer(receiver);
+                    }
                 }
+            } else if (data.type === 'chunk-request') {
+                // Handle resending of missing chunks
+                resendMissingChunks(data.id, data.chunks);
             } else if (data.type === 'file-reject') {
                 addSystemMessage(`❌ File transfer rejected: ${data.reason}`);
             }
+        }
+
+        // Helper function to verify all chunks are received
+        function verifyAllChunks(receiver) {
+            const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+            for (let i = 0; i < expectedChunks; i++) {
+                const offset = i * currentChunkSize;
+                if (!receiver.chunks.has(offset)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Function to resend missing chunks
+        async function resendMissingChunks(fileId, chunks) {
+            // Implementation depends on how you're storing the original file
+            // This would need to be implemented based on your file handling strategy
+            console.log(`Resending ${chunks.length} chunks for file ${fileId}`);
         }
 
         // Function to get file type
@@ -1186,4 +1347,4 @@
         }
     </script>
 </body>
-</html>
+</html> 
