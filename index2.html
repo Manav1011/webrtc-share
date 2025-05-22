@@ -664,6 +664,42 @@
                 gap: 2px;
             }
         }
+        
+        /* Chunk size control styles */
+        .chunk-size-control {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+            background: rgba(11, 25, 44, 0.4);
+            padding: 8px;
+            border-radius: 8px;
+        }
+        
+        .chunk-size-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        
+        .chunk-button {
+            background: rgba(30, 62, 98, 0.3);
+            border: none;
+            color: #e0e0e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+        }
+        
+        .chunk-button:hover {
+            background: rgba(255, 101, 0, 0.3);
+        }
+        
+        .chunk-button.active {
+            background: rgba(255, 101, 0, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -676,6 +712,26 @@
             <button class="dialog-button primary" id="confirmDownload">Yes, Download</button>
         </div>
     </div>
+    
+    <div class="download-dialog" id="chunkSizeDialog">
+        <h3>Adjust Chunk Size</h3>
+        <p>Select the chunk size for file transfers:</p>
+        <div class="chunk-size-control">
+            <div>Current: <span id="currentChunkSizeDisplay">1 MB</span></div>
+            <div class="chunk-size-buttons">
+                <button class="chunk-button" data-size="262144">256 KB</button>
+                <button class="chunk-button" data-size="524288">512 KB</button>
+                <button class="chunk-button active" data-size="1048576">1 MB</button>
+                <button class="chunk-button" data-size="2097152">2 MB</button>
+                <button class="chunk-button" data-size="4194304">4 MB</button>
+                <button class="chunk-button" data-size="8388608">8 MB</button>
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button class="dialog-button secondary" onclick="hideChunkSizeDialog()">Cancel</button>
+            <button class="dialog-button primary" id="confirmChunkSize">Apply</button>
+        </div>
+    </div>
     <div class="container">
         <div class="header">
             <h1>WebRTC Share</h1>
@@ -685,18 +741,16 @@
                     <input type="text" id="peerIdInput" placeholder="Enter peer ID to connect..." class="message-input">
                     <button class="send-btn" onclick="connectToPeer()">Connect</button>
                 </div>
-                <div class="network-status" id="networkStatus">
-                    <div class="network-indicator network-unknown" id="networkIndicator"></div>
-                    <div>
-                        <span id="networkConditionText">Network: Unknown</span>
-                        <div class="network-stats" id="networkStats">
-                            <span class="network-stat" id="speedStat">Speed: --</span>
-                            <span class="network-stat" id="rttStat">RTT: --</span>
-                            <span class="network-stat" id="jitterStat">Jitter: --</span>
-                            <span class="network-stat" id="lossStat">Loss: --</span>
-                        </div>
+                <div class="chunk-size-control">
+                    <div>Chunk Size: <span id="currentChunkSizeDisplay">1 MB</span></div>
+                    <div class="chunk-size-buttons">
+                        <button class="chunk-button" data-size="262144">256 KB</button>
+                        <button class="chunk-button" data-size="524288">512 KB</button>
+                        <button class="chunk-button active" data-size="1048576">1 MB</button>
+                        <button class="chunk-button" data-size="2097152">2 MB</button>
+                        <button class="chunk-button" data-size="4194304">4 MB</button>
+                        <button class="chunk-button" data-size="8388608">8 MB</button>
                     </div>
-                    <div class="network-refresh" id="networkRefresh" title="Refresh network stats">⟳</div>
                 </div>
             </div>
         </div>
@@ -726,28 +780,18 @@
         const peerIdElement = document.getElementById('peerId');
         const peerIdInput = document.getElementById('peerIdInput');
 
-        // Optimized file transfer configuration
-        const MIN_CHUNK_SIZE = 262144; // 256KB minimum for slow connections
-        const MAX_CHUNK_SIZE = 16777216; // 16MB maximum for very fast connections
+        // Simplified file transfer configuration
+        const MIN_CHUNK_SIZE = 262144; // 256KB minimum
+        const MAX_CHUNK_SIZE = 16777216; // 16MB maximum
         const INITIAL_CHUNK_SIZE = 1048576; // Start with 1MB chunks
         const MAX_MEMORY_USAGE = 2 * 1024 * 1024 * 1024; // 2GB max memory usage
-        const MAX_PENDING_CHUNKS = 256; // Maximum chunks in flight
-        const SPEED_MEASUREMENT_INTERVAL = 5000; // 1000ms
-        const NETWORK_PROBE_SIZE = 262144; // 256KB probe size
-        const NETWORK_PROBE_COUNT = 3; // Send 3 probes
+        const MAX_PENDING_CHUNKS = 64; // Maximum chunks in flight
         
         let currentChunkSize = INITIAL_CHUNK_SIZE;
         let fileQueue = [];
         let isTransferring = false;
-        let lastTransferTime = Date.now();
         let bytesTransferred = 0;
         let pendingChunks = 0;
-        let transferSpeed = 0; // bytes per second
-        let networkCondition = 'unknown'; // unknown, poor, average, good, excellent
-        let rttHistory = []; // Round-trip time history in ms
-        let jitterHistory = []; // Jitter history in ms
-        let packetLossRate = 0; // Packet loss rate (0-1)
-        let lastNetworkProbe = 0; // Last network probe timestamp
 
         // Function to format file size with appropriate units
         function formatFileSize(bytes) {
@@ -1362,59 +1406,13 @@
             return 'poor';
         }
 
-        // Update setupConnection to handle bandwidth test and ping/pong
+        // Update setupConnection to remove network monitoring
         function setupConnection() {
             conn.on('open', () => {
                 addSystemMessage(`Connected to peer: ${conn.peer}`);
-                
-                // Show network status when connected
-                const networkStatus = document.getElementById('networkStatus');
-                if (networkStatus) {
-                    networkStatus.style.display = 'flex';
-                }
-                
-                // Start collecting WebRTC stats when connection is established
-                startStatsCollection();
             });
 
             conn.on('data', (data) => {
-                // Handle ping/pong for RTT measurement
-                if (data.type === 'ping') {
-                    // Immediately send pong response
-                    conn.send({
-                        type: 'pong',
-                        originalTimestamp: data.timestamp,
-                        timestamp: Date.now()
-                    });
-                    return;
-                }
-                
-                if (data.type === 'pong') {
-                    const rtt = performance.now() - data.originalTimestamp;
-                    rttHistory.push(rtt);
-                    if (rttHistory.length > 10) rttHistory.shift();
-                    console.log(`Measured RTT: ${rtt.toFixed(2)}ms`);
-                    return;
-                }
-                
-                // Ignore bandwidth test data
-                if (data.type === 'bandwidth-test') {
-                    return;
-                }
-                
-                // Handle probe responses
-                if (data.type === 'network-probe') {
-                    // Immediately echo back probe data
-                    conn.send({
-                        type: 'probe-response',
-                        probeId: data.probeId,
-                        probeNumber: data.probeNumber,
-                        timestamp: Date.now(),
-                        originalTimestamp: data.timestamp
-                    });
-                    return;
-                }
-                
                 // Log received message details
                 console.group('Received Message');
                 console.log('Message Type:', data.type);
@@ -1433,17 +1431,6 @@
                         console.log('File Size:', formatFileSize(data.size));
                         console.log('Chunk Size:', formatFileSize(data.chunk.length));
                         console.log('File ID:', data.id);
-                        break;
-                    case 'receiver-ready':
-                        console.log('Receiver Preferred Chunk Size:', formatFileSize(data.preferredChunkSize));
-                        console.log('Receiver Max Parallel Chunks:', data.maxParallelChunks);
-                        break;
-                    case 'receiver-feedback':
-                        console.log('Feedback Status:', data.status);
-                        console.log('Current Speed:', formatFileSize(data.currentSpeed) + '/s');
-                        break;
-                    case 'probe-response':
-                        console.log('Probe RTT:', performance.now() - data.originalTimestamp, 'ms');
                         break;
                 }
                 
@@ -1522,50 +1509,12 @@
                 peerIdElement.textContent = `Your ID: ${id}`;
                 console.log('My peer ID is:', id);
                 addSystemMessage(`Connected to server. Your ID: ${id}`);
-                
-                // Set up periodic network quality assessment
-                setInterval(() => {
-                    if (peer && peer.open) {
-                        const quality = assessNetworkQuality();
-                        
-                        // Log network quality periodically (every 5 seconds)
-                        console.log(`Current network quality: ${quality}`);
-                        
-                        // Trigger optimization if connection quality changed
-                        if (networkCondition !== lastNetworkCondition) {
-                            console.log(`Network condition changed: ${lastNetworkCondition} -> ${networkCondition}`);
-                            lastNetworkCondition = networkCondition;
-                            
-                            // Update chunk size based on new network condition
-                            currentChunkSize = getOptimalChunkSize();
-                        }
-                    }
-                }, 5000);
-                
-                let lastNetworkCondition = 'unknown';
             });
 
             peer.on('connection', (connection) => {
                 conn = connection;
                 setupConnection();
                 addSystemMessage(`Connected to peer: ${conn.peer}`);
-                
-                // Now that we have a connection, start monitoring network stats
-                setTimeout(() => startStatsCollection(), 1000);
-            });
-
-            peer.on('call', (call) => {
-                // Answer the call with our dummy stream
-                getDummyStream().then(stream => {
-                    call.answer(stream);
-                    mediaCall = call;
-                    
-                    call.on('stream', remoteStream => {
-                        console.log('Received remote stream for stats collection');
-                        // Store the remote stream for stats collection
-                        remoteMediaStream = remoteStream;
-                    });
-                });
             });
 
             peer.on('error', (err) => {
@@ -1761,7 +1710,7 @@
             return true;
         }
 
-        // Enhanced file upload handler with network awareness
+        // Enhanced file upload handler with simplified chunk handling
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file || !conn || !conn.open) {
@@ -1777,146 +1726,102 @@
                 console.log(`Starting file transfer: ${file.name} (${formatFileSize(file.size)})`);
                 addSystemMessage(`📤 Starting to send file: ${file.name} (${formatFileSize(file.size)})`);
                 
-                // Probe network before starting large transfers, but only once
-                if (file.size > 10 * 1024 * 1024 && (Date.now() - lastNetworkProbe > 30000)) { // 10MB and not probed recently
-                    addSystemMessage("Analyzing network conditions before transfer...");
-                    await probeNetworkSpeed();
-                    // Set initial chunk size based on network conditions
-                    currentChunkSize = getOptimalChunkSize();
-                    lastNetworkProbe = Date.now(); // Update probe time
-                }
+                // Set transfer flag
+                isTransferring = true;
                 
                 const messageDiv = addMessageToChat(file.name, 'file', 'sent');
                 const progressBar = createProgressBar(messageDiv);
                 
                 const fileId = Math.random().toString(36).substring(2);
                 let offset = 0;
-                let lastMeasurement = Date.now();
+                let lastProgressUpdate = Date.now();
                 bytesTransferred = 0;
-                pendingChunks = 0;
-                transferSpeed = transferSpeed || INITIAL_CHUNK_SIZE; // Use existing speed measurement if available
                 
-                // Send file metadata with initial chunk size
+                // Send file metadata
                 conn.send({
                     type: 'file-meta',
                     id: fileId,
                     name: file.name,
                     size: file.size,
-                    chunkSize: currentChunkSize,
-                    networkCondition: networkCondition
+                    chunkSize: currentChunkSize
                 });
 
-                // Enhanced chunk sending function with buffer reuse
-                const chunkBuffer = new ArrayBuffer(MAX_CHUNK_SIZE); // Preallocate buffer
-                const chunkView = new Uint8Array(chunkBuffer);
-                
+                // Enhanced chunk sending function
                 async function sendChunk(chunkOffset) {
                     if (chunkOffset >= file.size) return 0;
                     
                     const chunkSize = Math.min(currentChunkSize, file.size - chunkOffset);
                     const chunk = file.slice(chunkOffset, chunkOffset + chunkSize);
                     
-                    // Use FileReader for better performance with large files
                     return new Promise((resolve) => {
                         const reader = new FileReader();
                         reader.onload = function(e) {
                             const arrayBuffer = e.target.result;
-                    conn.send({
-                        type: 'file-chunk',
-                        id: fileId,
+                            conn.send({
+                                type: 'file-chunk',
+                                id: fileId,
                                 chunk: new Uint8Array(arrayBuffer),
-                        offset: chunkOffset,
-                        size: file.size
-                    });
+                                offset: chunkOffset,
+                                size: file.size
+                            });
                             resolve(chunkSize);
                         };
                         reader.readAsArrayBuffer(chunk);
                     });
                 }
 
-                // Start with a reasonable number based on network condition
-                let optimalPendingChunks = networkCondition === 'unknown' ? 64 : 
-                    networkCondition === 'excellent' ? 128 : 
-                    networkCondition === 'good' ? 96 : 
-                    networkCondition === 'average' ? 64 : 32;
+                // Calculate optimal parallel chunks based on chunk size
+                const parallelChunks = Math.max(16, Math.min(MAX_PENDING_CHUNKS, 
+                    Math.floor(8 * 1048576 / currentChunkSize))); // 8MB worth of chunks in flight
+                    
+                console.log(`Using ${parallelChunks} parallel chunks for transfers`);
                     
                 let totalBytesSent = 0;
-                let lastProgressUpdate = Date.now();
-                let lastNetworkAdjustment = Date.now();
                 let transferActive = true;
-                let pauseRequested = false;
 
                 // Create a worker for better performance
                 const transferWorker = {
                     async run() {
-                        // Enhanced chunk sending loop with adaptive parallelism
                         while (offset < file.size && transferActive) {
-                            if (pauseRequested) {
-                                await new Promise(resolve => setTimeout(resolve, 100));
-                                continue;
-                            }
+                            const chunkPromises = [];
                             
-                    const chunkPromises = [];
-                    const batchStart = Date.now();
-                    
-                    // Send multiple chunks in parallel based on current performance
-                            const batchSize = Math.min(optimalPendingChunks, Math.ceil((file.size - offset) / currentChunkSize));
+                            // Send multiple chunks in parallel
+                            const batchSize = Math.min(parallelChunks, Math.ceil((file.size - offset) / currentChunkSize));
                             
                             for (let i = 0; i < batchSize; i++) {
                                 if (offset >= file.size) break;
-                        chunkPromises.push(sendChunk(offset));
-                        offset += currentChunkSize;
-                        pendingChunks++;
+                                chunkPromises.push(sendChunk(offset));
+                                offset += currentChunkSize;
                                 
-                                // Small yield to allow UI updates
+                                // Small yield every 32 chunks to allow UI updates
                                 if (i % 32 === 31) {
                                     await new Promise(resolve => setTimeout(resolve, 0));
                                 }
-                    }
-                    
-                    // Wait for current batch of chunks to complete
-                    const batchSizes = await Promise.all(chunkPromises);
-                    const batchBytes = batchSizes.reduce((a, b) => a + b, 0);
-                    pendingChunks = 0;
-                    totalBytesSent += batchBytes;
-
-                            // Measure and adjust chunk size and parallelism less frequently
-                    const now = Date.now();
-                            if (now - lastMeasurement >= 1000) { // Only every second instead of every 5 seconds
-                        bytesTransferred += batchBytes;
-                        optimalPendingChunks = adjustChunkSize(bytesTransferred, now - lastMeasurement);
-                        
-                        // Calculate and display transfer speed
-                        const speed = (bytesTransferred / (now - lastMeasurement)) * 1000;
-                        const speedMBps = (speed * 8) / (1024 * 1024);
-                        console.log(`Current transfer speed: ${speedMBps.toFixed(2)} Mbps`);
-                                
-                                // Update network condition display only occasionally
-                                if (now - lastNetworkAdjustment >= 5000) { // Every 5 seconds
-                                    addSystemMessage(`📊 Transfer speed: ${speedMBps.toFixed(2)} Mbps (${networkCondition} connection)`);
-                                    lastNetworkAdjustment = now;
-                                }
-                        
-                        bytesTransferred = 0;
-                        lastMeasurement = now;
-                    }
+                            }
+                            
+                            // Wait for current batch of chunks to complete
+                            const batchSizes = await Promise.all(chunkPromises);
+                            const batchBytes = batchSizes.reduce((a, b) => a + b, 0);
+                            totalBytesSent += batchBytes;
 
                             // Update progress less frequently to reduce DOM operations
+                            const now = Date.now();
                             if (now - lastProgressUpdate >= 200) { // Every 200ms
-                    const progress = (totalBytesSent / file.size) * 100;
-                    updateProgress(progressBar, progress);
+                                const progress = (totalBytesSent / file.size) * 100;
+                                updateProgress(progressBar, progress);
                                 lastProgressUpdate = now;
                             }
                             
-                            // Small delay to prevent browser freezing and allow other operations
-                            if (pendingChunks === 0) {
-                                await new Promise(resolve => setTimeout(resolve, 0));
-                            }
-                }
+                            // Small yield to prevent browser freezing
+                            await new Promise(resolve => setTimeout(resolve, 0));
+                        }
 
-                updateProgress(progressBar, 100);
-                console.log('File transfer completed:', file.name);
-                addSystemMessage(`✅ File transfer completed: ${file.name}`);
+                        updateProgress(progressBar, 100);
+                        console.log('File transfer completed:', file.name);
+                        addSystemMessage(`✅ File transfer completed: ${file.name}`);
+                        
+                        // Reset transfer flag
+                        isTransferring = false;
                     }
                 };
 
@@ -1926,13 +1831,14 @@
             } catch (err) {
                 console.error('File transfer error:', err);
                 addSystemMessage(`❌ File transfer failed: ${err.message}`);
+                isTransferring = false;
             }
         });
 
         // Initialize fileReceivers Map
         const fileReceivers = new Map();
 
-        // Enhanced file receiver to handle optimized transfers with network awareness
+        // Enhanced file receiver with simplified chunk handling
         function handleReceivedFile(data) {
             if (data.type === 'file-meta') {
                 if (!isFileSizeManageable(data.size)) {
@@ -1947,19 +1853,15 @@
                 console.log(`Receiving file: ${data.name} (${formatFileSize(data.size)})`);
                 addSystemMessage(`📥 Receiving file: ${data.name} (${formatFileSize(data.size)})`);
                 
-                // Adapt to sender's network condition if provided
-                if (data.networkCondition) {
-                    networkCondition = data.networkCondition;
-                    console.log(`Using sender's network condition: ${networkCondition}`);
-                }
+                // Set transfer flag
+                isTransferring = true;
                 
                 // Check if file is large enough for disk storage
                 let useDiskStorage = false;
                 const isLargeFile = data.size > 50 * 1024 * 1024;
                 const canUseDiskStorage = isLargeFile && window.showSaveFilePicker;
                 
-                // Create a placeholder receiver immediately to handle chunks that might arrive during initialization
-                // This prevents "No receiver found" errors if chunks arrive before the async initialization completes
+                // Create a placeholder receiver
                 const placeholderReceiver = {
                     name: data.name,
                     size: data.size,
@@ -1968,233 +1870,25 @@
                     receivedBytes: 0,
                     messageDiv: addMessageToChat(data.name, 'file', 'received'),
                     startTime: Date.now(),
-                    lastSpeedUpdate: Date.now(),
-                    bytesInInterval: 0,
-                    currentSpeed: 0,
                     lastProgressUpdate: Date.now(),
                     receivedChunks: new Set(),
-                    lastChunkRequest: Date.now(),
-                    chunkSize: data.chunkSize || getOptimalChunkSize(),
-                    useDiskStorage: false, // Will be updated after initialization
+                    chunkSize: data.chunkSize || currentChunkSize,
+                    useDiskStorage: false,
                     fileHandle: null,
                     fileWriter: null,
                     fileUrl: null,
-                    pendingChunks: [], // Store chunks that arrive during initialization
+                    pendingChunks: [],
                     isInitializing: true,
                     initializationPromise: null,
-                    processingChunk: false // Flag to prevent concurrent chunk processing
+                    processingChunk: false
                 };
                 
-                // Add placeholder to fileReceivers immediately
+                // Add placeholder to fileReceivers
                 fileReceivers.set(data.id, placeholderReceiver);
                 placeholderReceiver.progressBar = createProgressBar(placeholderReceiver.messageDiv);
                 
-                // For large files, create a save button that the user must click
-                if (canUseDiskStorage) {
-                    // Create a save-to-disk button (this ensures user gesture requirement is met)
-                    const saveButtonDiv = document.createElement('div');
-                    saveButtonDiv.style.marginTop = '10px';
-                    saveButtonDiv.style.textAlign = 'center';
-                    
-                    const saveButton = document.createElement('button');
-                    saveButton.className = 'dialog-button primary';
-                    saveButton.textContent = '💾 Save to Disk';
-                    saveButton.style.padding = '8px 16px';
-                    saveButton.style.margin = '5px 0';
-                    
-                    saveButtonDiv.appendChild(saveButton);
-                    placeholderReceiver.messageDiv.appendChild(saveButtonDiv);
-                    
-                    // Add a message explaining the option
-                    addSystemMessage(`📥 Large file detected (${formatFileSize(data.size)}). Click "Save to Disk" button to save directly to your computer.`);
-                    
-                    // Create a promise that will resolve when the user clicks the button
-                    placeholderReceiver.initializationPromise = new Promise(async (resolve) => {
-                        // Set up the click handler for the save button
-                        saveButton.onclick = async () => {
-                            try {
-                                // Remove the button after click
-                                saveButtonDiv.innerHTML = '<div style="color: #FF6500;">Selecting save location...</div>';
-                                
-                                // Now we can show the save dialog (with user gesture)
-                                const fileHandle = await window.showSaveFilePicker({
-                                    suggestedName: data.name,
-                                    types: [{
-                                        description: 'Files',
-                                        accept: {'*/*': [`.${data.name.split('.').pop()}`]},
-                                    }],
-                                });
-                                
-                                // Create a writable stream
-                                const fileWriter = await fileHandle.createWritable();
-                                
-                                // Update the receiver
-                const receiver = fileReceivers.get(data.id);
-                                if (receiver) {
-                                    receiver.useDiskStorage = true;
-                                    receiver.fileHandle = fileHandle;
-                                    receiver.fileWriter = fileWriter;
-                                    
-                                    // Update UI
-                                    saveButtonDiv.innerHTML = '<div style="color: #4CAF50;">✅ Saving directly to disk</div>';
-                                    addSystemMessage(`📥 Saving file directly to disk: ${data.name}`);
-                                    
-                                    // Resolve with disk storage
-                                    resolve({ useDiskStorage: true, fileHandle, fileWriter });
-                                }
-                            } catch (err) {
-                                console.warn('File system access failed or cancelled:', err);
-                                addSystemMessage(`📥 Disk access cancelled. Using memory storage instead.`);
-                                
-                                // Update UI
-                                saveButtonDiv.innerHTML = '<div style="color: #FFA500;">Using memory storage</div>';
-                                
-                                // Resolve with memory storage
-                                resolve({ useDiskStorage: false });
-                            }
-                        };
-                        
-                        // Also provide an option to use memory storage directly
-                        const memoryButton = document.createElement('button');
-                        memoryButton.className = 'dialog-button secondary';
-                        memoryButton.textContent = '🧠 Use Memory';
-                        memoryButton.style.padding = '8px 16px';
-                        memoryButton.style.margin = '5px 0 5px 10px';
-                        saveButtonDiv.appendChild(memoryButton);
-                        
-                        memoryButton.onclick = () => {
-                            // Update UI
-                            saveButtonDiv.innerHTML = '<div style="color: #FFA500;">Using memory storage</div>';
-                            addSystemMessage(`📥 Using memory storage for file transfer.`);
-                            
-                            // Resolve with memory storage
-                            resolve({ useDiskStorage: false });
-                        };
-                    });
-                } else {
-                    // For smaller files, just use memory storage without prompting
-                    placeholderReceiver.initializationPromise = Promise.resolve({ useDiskStorage: false });
-                    
-                    if (isLargeFile && !window.showSaveFilePicker) {
-                        addSystemMessage(`📥 Your browser doesn't support saving directly to disk. Using memory storage.`);
-                    }
-                }
-                
-                // Initialize the receiver state
-                const initializeReceiver = async () => {
-                    try {
-                        // Wait for user decision (if applicable)
-                        const { useDiskStorage, fileHandle, fileWriter } = await placeholderReceiver.initializationPromise;
-                        
-                        // Enhanced receiver state tracking
-                        const useTypedArray = !useDiskStorage && data.size > 50 * 1024 * 1024;
-                        
-                        // Update the placeholder receiver with final configuration
-                        const receiver = fileReceivers.get(data.id);
-                        
-                        // Only update if the receiver still exists (it might have been removed due to errors)
-                        if (receiver) {
-                            // These might already be set if using disk storage
-                            if (!receiver.useDiskStorage) {
-                                receiver.useDiskStorage = useDiskStorage;
-                                receiver.fileHandle = fileHandle;
-                                receiver.fileWriter = fileWriter;
-                            }
-                            
-                            // Update storage method based on final configuration
-                            if (useDiskStorage) {
-                                receiver.chunks = null;
-                                receiver.buffer = null;
-                            } else if (useTypedArray) {
-                                receiver.buffer = new Uint8Array(data.size);
-                                receiver.chunks = null;
-                                
-                                // If any chunks were received during initialization, copy them to the buffer
-                                if (receiver.pendingChunks && receiver.pendingChunks.length > 0) {
-                                    console.log(`Processing ${receiver.pendingChunks.length} pending chunks received during initialization`);
-                                    for (const pendingChunk of receiver.pendingChunks) {
-                                        receiver.buffer.set(pendingChunk.chunk, pendingChunk.offset);
-                                        receiver.receivedBytes += pendingChunk.chunk.length;
-                                    }
-                                    receiver.pendingChunks = [];
-                                }
-                            } else {
-                                // Keep using the map for small files
-                                // Pending chunks are already in the map
-                            }
-                            
-                            // Process any pending chunks for disk storage
-                            if (useDiskStorage && receiver.pendingChunks && receiver.pendingChunks.length > 0) {
-                                console.log(`Processing ${receiver.pendingChunks.length} pending chunks for disk storage`);
-                                
-                                // Sort chunks by offset for sequential writing
-                                receiver.pendingChunks.sort((a, b) => a.offset - b.offset);
-                                
-                                for (const pendingChunk of receiver.pendingChunks) {
-                                    await fileWriter.write({
-                                        type: 'write',
-                                        position: pendingChunk.offset,
-                                        data: pendingChunk.chunk
-                                    });
-                                    receiver.receivedBytes += pendingChunk.chunk.length;
-                                }
-                                receiver.pendingChunks = [];
-                            }
-                            
-                            // Mark initialization as complete
-                            receiver.isInitializing = false;
-                            
-                            // Update progress
-                            const progress = (receiver.receivedBytes / receiver.size) * 100;
-                            updateProgress(receiver.progressBar, progress);
-                            
-                            // Send ready signal with receiver's preferred chunk size based on network conditions
-                conn.send({
-                    type: 'receiver-ready',
-                    id: data.id,
-                                preferredChunkSize: getOptimalChunkSize(),
-                                maxParallelChunks: networkCondition === 'excellent' ? 128 : 
-                                                 networkCondition === 'good' ? 96 : 
-                                                 networkCondition === 'average' ? 64 : 32,
-                                networkCondition: networkCondition
-                            });
-                            
-                            // Check if all chunks have been received during initialization
-                            if (receiver.receivedBytes >= receiver.size) {
-                                console.log('All chunks received during initialization, finalizing file');
-                                await completeFileTransfer(receiver, data.id);
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error initializing receiver:', err);
-                        addSystemMessage(`❌ Error preparing to receive file: ${err.message}`);
-                        
-                        // Fallback to memory storage
-                        const receiver = fileReceivers.get(data.id);
-                        if (receiver) {
-                            receiver.useDiskStorage = false;
-                            receiver.isInitializing = false;
-                            
-                            // Initialize memory storage if needed
-                            if (!receiver.buffer && data.size > 50 * 1024 * 1024) {
-                                receiver.buffer = new Uint8Array(data.size);
-                                receiver.chunks = null;
-                                
-                                // Process any pending chunks
-                                if (receiver.pendingChunks && receiver.pendingChunks.length > 0) {
-                                    for (const pendingChunk of receiver.pendingChunks) {
-                                        receiver.buffer.set(pendingChunk.chunk, pendingChunk.offset);
-                                        receiver.receivedBytes += pendingChunk.chunk.length;
-                                    }
-                                    receiver.pendingChunks = [];
-                                }
-                            }
-                        }
-                    }
-                };
-                
-                // Initialize the receiver (async)
-                initializeReceiver();
+                // Initialize the receiver
+                initializeReceiver(data.id, data.name, data.size);
                 
             } else if (data.type === 'file-chunk') {
                 const receiver = fileReceivers.get(data.id);
@@ -2207,7 +1901,6 @@
                 
                 // If still initializing, store chunks to process later
                 if (receiver.isInitializing) {
-                    console.log(`Receiver still initializing, storing chunk at offset ${data.offset} for later processing`);
                     if (!receiver.pendingChunks) receiver.pendingChunks = [];
                     receiver.pendingChunks.push({
                         offset: data.offset,
@@ -2218,6 +1911,151 @@
                 
                 // Process the chunk
                 processFileChunk(receiver, data.id, chunk, data.offset, data.size);
+            }
+        }
+
+        // Add the initializeReceiver function
+        async function initializeReceiver(fileId, fileName, fileSize) {
+            const receiver = fileReceivers.get(fileId);
+            if (!receiver) return;
+
+            try {
+                const isLargeFile = fileSize > 50 * 1024 * 1024;
+                const canUseDiskStorage = isLargeFile && window.showSaveFilePicker;
+
+                if (canUseDiskStorage) {
+                    // Create save button UI
+                    const saveButtonDiv = document.createElement('div');
+                    saveButtonDiv.style.marginTop = '10px';
+                    saveButtonDiv.style.textAlign = 'center';
+                    
+                    const saveButton = document.createElement('button');
+                    saveButton.className = 'dialog-button primary';
+                    saveButton.textContent = '💾 Save to Disk';
+                    saveButton.style.padding = '8px 16px';
+                    saveButton.style.margin = '5px 0';
+                    
+                    const memoryButton = document.createElement('button');
+                    memoryButton.className = 'dialog-button secondary';
+                    memoryButton.textContent = '🧠 Use Memory';
+                    memoryButton.style.padding = '8px 16px';
+                    memoryButton.style.margin = '5px 0 5px 10px';
+                    
+                    saveButtonDiv.appendChild(saveButton);
+                    saveButtonDiv.appendChild(memoryButton);
+                    receiver.messageDiv.appendChild(saveButtonDiv);
+                    
+                    addSystemMessage(`📥 Large file detected (${formatFileSize(fileSize)}). Click "Save to Disk" button to save directly to your computer.`);
+                    
+                    // Handle save to disk option
+                    saveButton.onclick = async () => {
+                        try {
+                            saveButtonDiv.innerHTML = '<div style="color: #FF6500;">Selecting save location...</div>';
+                            
+                            const fileHandle = await window.showSaveFilePicker({
+                                suggestedName: fileName,
+                                types: [{
+                                    description: 'Files',
+                                    accept: {'*/*': [`.${fileName.split('.').pop()}`]},
+                                }],
+                            });
+                            
+                            const fileWriter = await fileHandle.createWritable();
+                            
+                            receiver.useDiskStorage = true;
+                            receiver.fileHandle = fileHandle;
+                            receiver.fileWriter = fileWriter;
+                            
+                            saveButtonDiv.innerHTML = '<div style="color: #4CAF50;">✅ Saving directly to disk</div>';
+                            addSystemMessage(`📥 Saving file directly to disk: ${fileName}`);
+                            
+                            finishInitialization(receiver, fileId);
+                        } catch (err) {
+                            console.warn('File system access failed or cancelled:', err);
+                            addSystemMessage(`📥 Disk access cancelled. Using memory storage instead.`);
+                            saveButtonDiv.innerHTML = '<div style="color: #FFA500;">Using memory storage</div>';
+                            
+                            receiver.useDiskStorage = false;
+                            finishInitialization(receiver, fileId);
+                        }
+                    };
+                    
+                    // Handle memory storage option
+                    memoryButton.onclick = () => {
+                        saveButtonDiv.innerHTML = '<div style="color: #FFA500;">Using memory storage</div>';
+                        addSystemMessage(`📥 Using memory storage for file transfer.`);
+                        
+                        receiver.useDiskStorage = false;
+                        finishInitialization(receiver, fileId);
+                    };
+                } else {
+                    // For smaller files, use memory storage
+                    receiver.useDiskStorage = false;
+                    finishInitialization(receiver, fileId);
+                }
+            } catch (err) {
+                console.error('Error initializing receiver:', err);
+                addSystemMessage(`❌ Error preparing to receive file: ${err.message}`);
+                
+                // Fallback to memory storage
+                receiver.useDiskStorage = false;
+                finishInitialization(receiver, fileId);
+            }
+        }
+
+        // Helper function to finish initialization
+        function finishInitialization(receiver, fileId) {
+            // Initialize storage based on configuration
+            if (receiver.useDiskStorage) {
+                receiver.chunks = null;
+                receiver.buffer = null;
+            } else if (receiver.size > 50 * 1024 * 1024) {
+                receiver.buffer = new Uint8Array(receiver.size);
+                receiver.chunks = null;
+                
+                // Process any pending chunks
+                if (receiver.pendingChunks && receiver.pendingChunks.length > 0) {
+                    for (const pendingChunk of receiver.pendingChunks) {
+                        receiver.buffer.set(pendingChunk.chunk, pendingChunk.offset);
+                        receiver.receivedBytes += pendingChunk.chunk.length;
+                    }
+                    receiver.pendingChunks = [];
+                }
+            }
+            
+            // Process any pending chunks for disk storage
+            if (receiver.useDiskStorage && receiver.pendingChunks && receiver.pendingChunks.length > 0) {
+                receiver.pendingChunks.sort((a, b) => a.offset - b.offset);
+                
+                for (const pendingChunk of receiver.pendingChunks) {
+                    receiver.fileWriter.write({
+                        type: 'write',
+                        position: pendingChunk.offset,
+                        data: pendingChunk.chunk
+                    });
+                    receiver.receivedBytes += pendingChunk.chunk.length;
+                }
+                receiver.pendingChunks = [];
+            }
+            
+            // Mark initialization as complete
+            receiver.isInitializing = false;
+            
+            // Update progress
+            const progress = (receiver.receivedBytes / receiver.size) * 100;
+            updateProgress(receiver.progressBar, progress);
+            
+            // Send ready signal
+            conn.send({
+                type: 'receiver-ready',
+                id: fileId,
+                preferredChunkSize: currentChunkSize
+            });
+            
+            // Check if all chunks have been received during initialization
+            if (receiver.receivedBytes >= receiver.size) {
+                console.log('All chunks received during initialization, finalizing file');
+                completeFileTransfer(receiver, fileId);
             }
         }
 
@@ -2248,44 +2086,20 @@
                 }
                 
                 receiver.receivedBytes += chunk.length;
-                receiver.bytesInInterval += chunk.length;
                 receiver.receivedChunks.add(offset);
 
                 const now = Date.now();
                 
-                // Update speed measurements less frequently - only every 500ms to reduce overhead
-                if (now - receiver.lastSpeedUpdate >= 500) {
-                    // Calculate current speed
-                    const speed = (receiver.bytesInInterval / (now - receiver.lastSpeedUpdate)) * 1000;
-                    const speedMBps = (speed * 8) / (1024 * 1024);
-                    receiver.currentSpeed = speed;
-                    
-                    // Don't log every speed update to reduce console spam
-                    if (now % 2000 < 500) {
-                    console.log(`Download speed: ${speedMBps.toFixed(2)} Mbps`);
-                    }
-
-                    // Update transfer speed for network quality assessment
-                    // But do this less frequently during active transfers to avoid pauses
-                    if (now - lastNetworkProbe > 10000) { // Only every 10 seconds during transfer
-                        transferSpeed = transferSpeed * 0.7 + speed * 0.3;
-                        lastNetworkProbe = now;
-                    }
-
-                    receiver.bytesInInterval = 0;
-                    receiver.lastSpeedUpdate = now;
-                }
-
                 // Update progress less frequently to reduce DOM operations - every 200ms
                 if (now - receiver.lastProgressUpdate >= 200) {
-                const progress = (receiver.receivedBytes / receiver.size) * 100;
-                updateProgress(receiver.progressBar, progress);
+                    const progress = (receiver.receivedBytes / receiver.size) * 100;
+                    updateProgress(receiver.progressBar, progress);
                     receiver.lastProgressUpdate = now;
                 }
 
                 // Check if file is complete
                 if (receiver.receivedBytes >= receiver.size) {
-                        console.log('File reception complete, processing...');
+                    console.log('File reception complete, processing...');
                     await completeFileTransfer(receiver, fileId);
                 }
             } catch (err) {
@@ -2394,9 +2208,13 @@
                     if (window.gc) window.gc();
                 }, 100);
                 
+                // Reset transfer flag
+                isTransferring = false;
+                
             } catch (err) {
                 console.error('Error finalizing file transfer:', err);
                 addSystemMessage(`❌ Error processing file: ${err.message}`);
+                isTransferring = false;
             }
         }
         
@@ -2692,6 +2510,69 @@
                     }
                 });
             }
+        });
+
+        // Functions for chunk size dialog
+        function showChunkSizeDialog() {
+            const dialog = document.getElementById('chunkSizeDialog');
+            const overlay = document.getElementById('overlay');
+            dialog.classList.add('show');
+            overlay.classList.add('show');
+            
+            // Update the active button based on current chunk size
+            const buttons = document.querySelectorAll('.chunk-button');
+            buttons.forEach(button => {
+                button.classList.remove('active');
+                if (parseInt(button.dataset.size) === currentChunkSize) {
+                    button.classList.add('active');
+                }
+            });
+        }
+        
+        function hideChunkSizeDialog() {
+            const dialog = document.getElementById('chunkSizeDialog');
+            const overlay = document.getElementById('overlay');
+            dialog.classList.remove('show');
+            overlay.classList.remove('show');
+        }
+        
+        function updateChunkSizeDisplay() {
+            const display = document.getElementById('currentChunkSizeDisplay');
+            if (display) {
+                display.textContent = formatFileSize(currentChunkSize);
+            }
+        }
+
+        // Hide network status initially and show when connection is established
+        document.addEventListener('DOMContentLoaded', function() {
+            const networkStatus = document.getElementById('networkStatus');
+            if (networkStatus) {
+                networkStatus.style.display = 'none';
+            }
+            
+            // Initialize chunk size display
+            updateChunkSizeDisplay();
+            
+            // Set up chunk size dialog button
+            const showChunkSizeButton = document.getElementById('showChunkSizeButton');
+            if (showChunkSizeButton) {
+                showChunkSizeButton.addEventListener('click', showChunkSizeDialog);
+            }
+            
+            // Set up chunk size buttons
+            const chunkButtons = document.querySelectorAll('.chunk-button[data-size]');
+            chunkButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Remove active class from all buttons
+                    chunkButtons.forEach(btn => btn.classList.remove('active'));
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    // Update chunk size
+                    currentChunkSize = parseInt(this.dataset.size);
+                    updateChunkSizeDisplay();
+                    addSystemMessage(`Chunk size set to ${formatFileSize(currentChunkSize)}`);
+                });
+            });
         });
     </script>
 </body>
