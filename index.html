@@ -13,7 +13,8 @@
         }
 
         body {
-            background: linear-gradient(135deg, #000000 0%, #0B192C 50%, #1E3E62 100%);
+            background: url('Pasted image (2).png');
+            backdrop-filter: blur(56px) brightness(0.4);
             min-height: 100dvh;
             display: flex;
             flex-direction: column;
@@ -24,20 +25,18 @@
 
         .container {
             width: 100%;
-            max-width: 1200px;
+            max-width: 100%;
             height: 100dvh;
             display: grid;
             grid-template-rows: auto 1fr auto;
-            gap: 1rem;
-            padding: 1rem;
+            gap: 0.75rem;
+            padding: 0.75rem;
         }
 
         .header {
-            background: rgba(30, 62, 98, 0.2);
-            padding: 1.5rem;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 101, 0, 0.1);
+            padding: 1rem;
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -45,21 +44,19 @@
 
         .header h1 {
             color: #FF6500;
-            font-size: 1.75rem;
-            font-weight: 600;
-            letter-spacing: -0.5px;
+            font-size: 1.5rem;
+            font-weight: 500;
+            letter-spacing: -0.3px;
         }
 
         .chat-area {
-            background: rgba(11, 25, 44, 0.3);
-            padding: 1.5rem;
+            padding: 1rem;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 1rem;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(30, 62, 98, 0.2);
+            gap: 0.75rem;
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
             position: relative;
         }
 
@@ -81,25 +78,23 @@
         }
 
         .input-area {
-            background: rgba(11, 25, 44, 0.3);
-            padding: 1.25rem;
-            border-radius: 20px;
+            padding: 0.875rem;
+            border-radius: 12px;
             display: flex;
-            gap: 1rem;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(30, 62, 98, 0.2);
+            gap: 0.75rem;
+            backdrop-filter: blur(8px);
             align-items: center;
         }
 
         .message-input {
             flex: 1;
-            padding: 0.875rem 1.25rem;
-            border: 1px solid rgba(30, 62, 98, 0.3);
-            border-radius: 15px;
+            padding: 0.75rem 1rem;
+            border: 1px solid rgba(30, 62, 98, 0.25);
+            border-radius: 10px;
             outline: none;
-            font-size: 0.9375rem;
+            font-size: 0.9rem;
             transition: all 0.2s ease;
-            background: rgba(11, 25, 44, 0.2);
+            background: rgba(11, 25, 44, 0.15);
             color: #e0e0e0;
         }
 
@@ -119,17 +114,17 @@
         .upload-btn, .send-btn {
             background: #FF6500;
             color: white;
-            padding: 0.875rem 1.25rem;
+            padding: 0.75rem 1rem;
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
             font-weight: 500;
-            font-size: 0.9375rem;
+            font-size: 0.875rem;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            min-width: 44px;
+            gap: 0.375rem;
+            min-width: 40px;
             justify-content: center;
         }
 
@@ -143,14 +138,14 @@
         }
 
         .message {
-            padding: 1rem 1.25rem;
-            border-radius: 15px;
-            max-width: 75%;
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            max-width: 70%;
             word-wrap: break-word;
             animation: fadeIn 0.2s ease;
             position: relative;
-            font-size: 0.9375rem;
-            line-height: 1.5;
+            font-size: 0.875rem;
+            line-height: 1.4;
         }
 
         @keyframes fadeIn {
@@ -196,13 +191,13 @@
 
         @media (max-width: 768px) {
             .container {
-                padding: 0.75rem;
-                gap: 0.75rem;
+                padding: 0.5rem;
+                gap: 0.5rem;
                 height: 100dvh;
             }
 
             .header {
-                padding: 1rem;
+                padding: 0.75rem;
             }
 
             .header h1 {
@@ -216,27 +211,27 @@
 
             .message-input {
                 padding: 0.625rem 0.875rem;
-                font-size: 1rem;
+                font-size: 0.875rem;
             }
 
             .upload-btn, .send-btn {
                 padding: 0.625rem;
-                font-size: 1rem;
-                min-width: 40px;
+                font-size: 0.875rem;
+                min-width: 36px;
             }
 
             .message {
                 max-width: 85%;
-                padding: 0.75rem;
-                font-size: 0.9375rem;
+                padding: 0.625rem 0.875rem;
+                font-size: 0.85rem;
             }
 
             .connection-status {
-                font-size: 0.875rem;
+                font-size: 0.8rem;
             }
 
             #peerIdInput {
-                font-size: 0.9375rem;
+                font-size: 0.875rem;
                 padding: 0.625rem;
             }
         }
@@ -313,9 +308,24 @@
                 padding: 0.375rem 0.625rem;
             }
 
-            .media-preview {
-                max-width: 250px;
-                max-height: 250px;
+            .qr-panel {
+                padding: 1.25rem;
+                gap: 1.25rem;
+                max-width: 95vw;
+            }
+
+            .qr-code-container {
+                padding: 0.5rem;
+            }
+
+            #reader {
+                width: 250px;
+                height: 250px;
+            }
+
+            .qr-btn {
+                padding: 0.625rem 0.875rem;
+                font-size: 0.8rem;
             }
 
             .download-dialog {
@@ -359,19 +369,19 @@
         .connection-status {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            font-size: 0.875rem;
+            gap: 0.75rem;
+            font-size: 0.8rem;
         }
 
         .connection-controls {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.375rem;
             align-items: center;
         }
 
         #peerIdInput {
-            width: 200px;
-            font-size: 0.875rem;
+            width: 180px;
+            font-size: 0.8rem;
         }
 
         #peerId {
@@ -380,13 +390,13 @@
         }
 
         .message.system {
-            background: rgba(255, 101, 0, 0.1);
-            color: rgba(224, 224, 224, 0.7);
+            background: rgba(255, 101, 0, 0.08);
+            color: rgba(224, 224, 224, 0.65);
             align-self: center;
-            font-size: 0.875rem;
-            padding: 0.5rem 1rem;
-            border-radius: 12px;
-            max-width: 90%;
+            font-size: 0.8rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 8px;
+            max-width: 85%;
             text-align: center;
         }
 
@@ -481,17 +491,6 @@
             opacity: 0.7;
             margin-right: 8px;
         }
-        
-        .message.system {
-            font-size: 0.875rem;
-            padding: 8px 12px;
-            margin: 4px 0;
-            background: rgba(255, 101, 0, 0.1);
-            border-radius: 8px;
-            text-align: left;
-            display: flex;
-            align-items: center;
-        }
 
         .media-preview {
             max-width: 300px;
@@ -582,6 +581,89 @@
         .overlay.show {
             display: block;
         }
+
+        .qr-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 1.5rem;
+            background: rgba(11, 25, 44, 0.9);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 101, 0, 0.15);
+            text-align: center;
+            z-index: 1000;
+            max-width: 90vw;
+        }
+
+        .qr-close-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            color: #e0e0e0;
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0.375rem;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .qr-close-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .qr-code-container {
+            padding: 0.75rem;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .qr-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .qr-btn {
+            background: #FF6500;
+            color: white;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .qr-btn:hover {
+            background: #ff7518;
+            transform: translateY(-0.5px);
+        }
+
+        #reader {
+            width: 280px;
+            height: 280px;
+            background: black;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -593,6 +675,17 @@
             <button class="dialog-button secondary" onclick="hideDownloadDialog()">Cancel</button>
             <button class="dialog-button primary" id="confirmDownload">Yes, Download</button>
         </div>
+    </div>
+    <div id="qrPanel" class="qr-panel hidden">
+        <button class="qr-close-btn" onclick="hideQRPanel()">✕</button>
+        <h2 style="font-size: 1.25rem; margin: 0; font-weight: 500;">Connect with Peer</h2>
+        <p id="qrPeerId" style="color: #FF6500; font-weight: 500; margin: 0 0 0.75rem 0; font-size: 0.9rem;">Your ID: </p>
+        <div id="qrcode" class="qr-code-container"></div>
+        <div class="qr-buttons">
+            <button class="qr-btn" id="scanButton">Scan QR Code</button>
+            <button class="qr-btn" id="manualButton">Enter ID Manually</button>
+        </div>
+        <div id="reader" class="hidden"></div>
     </div>
     <div class="container">
         <div class="header">
@@ -621,6 +714,8 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
         let peer;
         let conn;
@@ -701,12 +796,15 @@
             peer.on('open', (id) => {
                 peerIdElement.textContent = `Your ID: ${id}`;
                 console.log('My peer ID is:', id);
+                generateQRCode(id);
+                showQRPanel();
                 addSystemMessage(`Connected to server. Your ID: ${id}`);
             });
 
             peer.on('connection', (connection) => {
                 conn = connection;
                 setupConnection();
+                hideQRPanel();
                 addSystemMessage(`Connected to peer: ${conn.peer}`);
             });
 
@@ -728,6 +826,11 @@
             peer.on('disconnected', () => {
                 addSystemMessage('Disconnected from server. Click to reconnect');
                 peerIdElement.innerHTML = `<span style="cursor: pointer; text-decoration: underline" onclick="peer.reconnect()">Reconnect</span>`;
+                // Show QR panel when disconnected from server (only if we have a peer ID and no active connection)
+                if (peer && peer.id && !conn) {
+                    generateQRCode(peer.id);
+                    showQRPanel();
+                }
             });
 
             peer.on('close', () => {
@@ -737,9 +840,9 @@
         }
 
         // Connect to another peer
-        function connectToPeer() {
-            const peerId = peerIdInput.value.trim();
-            if (!peerId) {
+        function connectToPeer(peerId = null) {
+            const targetPeerId = peerId || peerIdInput.value.trim();
+            if (!targetPeerId) {
                 addSystemMessage('Please enter a peer ID');
                 return;
             }
@@ -750,12 +853,14 @@
             }
 
             try {
-                addSystemMessage(`Connecting to peer: ${peerId}...`);
-                conn = peer.connect(peerId, {
+                addSystemMessage(`Connecting to peer: ${targetPeerId}...`);
+                conn = peer.connect(targetPeerId, {
                     reliable: true
                 });
                 setupConnection();
-                peerIdInput.value = '';
+                if (!peerId) {
+                    peerIdInput.value = '';
+                }
             } catch (err) {
                 console.error('Connection error:', err);
                 addSystemMessage(`Failed to connect: ${err.message}`);
@@ -819,11 +924,21 @@
             conn.on('close', () => {
                 addSystemMessage('Peer disconnected');
                 conn = null;
+                // Show QR panel again when peer disconnects (only if we have a peer ID)
+                if (peer && peer.id && !peer.destroyed) {
+                    generateQRCode(peer.id);
+                    showQRPanel();
+                }
             });
 
             conn.on('error', (err) => {
                 console.error('Connection error:', err);
                 addSystemMessage(`Connection error: ${err.message}`);
+                // Show QR panel again on connection error (only if we have a peer ID)
+                if (peer && peer.id && !peer.destroyed) {
+                    generateQRCode(peer.id);
+                    showQRPanel();
+                }
             });
         }
 
@@ -924,7 +1039,6 @@
                 // Enhanced chunk sending loop with dynamic parallelism
                 while (offset < file.size) {
                     const chunkPromises = [];
-                    const batchStart = Date.now();
                     
                     // Send multiple chunks in parallel based on current performance
                     while (pendingChunks < optimalPendingChunks && offset < file.size) {
@@ -974,127 +1088,152 @@
         // Enhanced file receiver to handle optimized transfers
         function handleReceivedFile(data) {
             if (data.type === 'file-meta') {
-                if (!isFileSizeManageable(data.size)) {
-                    conn.send({
-                        type: 'file-reject',
-                        id: data.id,
-                        reason: 'File size too large'
-                    });
-                    return;
-                }
-
-                console.log(`Receiving file: ${data.name} (${formatFileSize(data.size)})`);
-                addSystemMessage(`📥 Receiving file: ${data.name} (${formatFileSize(data.size)})`);
-                
-                // Enhanced receiver state tracking
-                fileReceivers.set(data.id, {
-                    name: data.name,
-                    size: data.size,
-                    chunks: new Map(),
-                    receivedBytes: 0,
-                    messageDiv: addMessageToChat(data.name, 'file', 'received'),
-                    startTime: Date.now(),
-                    lastSpeedUpdate: Date.now(),
-                    bytesInInterval: 0,
-                    currentSpeed: 0,
-                    missingChunks: new Set(),
-                    lastChunkRequest: Date.now(),
-                    receivedChunks: new Set()
-                });
-
-                const receiver = fileReceivers.get(data.id);
-                receiver.progressBar = createProgressBar(receiver.messageDiv);
-
-                // Send ready signal with receiver's preferred chunk size
-                conn.send({
-                    type: 'receiver-ready',
-                    id: data.id,
-                    preferredChunkSize: INITIAL_CHUNK_SIZE,
-                    maxParallelChunks: MAX_PENDING_CHUNKS
-                });
-                
+                handleFileMeta(data);
             } else if (data.type === 'file-chunk') {
-                const receiver = fileReceivers.get(data.id);
-                if (!receiver) {
-                    console.error('No receiver found for file:', data.id);
-                    return;
-                }
-
-                const chunk = new Uint8Array(data.chunk);
-                receiver.chunks.set(data.offset, chunk);
-                receiver.receivedBytes += chunk.length;
-                receiver.bytesInInterval += chunk.length;
-                receiver.receivedChunks.add(data.offset);
-
-                const now = Date.now();
-                if (now - receiver.lastSpeedUpdate >= SPEED_MEASUREMENT_INTERVAL) {
-                    // Calculate current speed
-                    const speed = (receiver.bytesInInterval / (now - receiver.lastSpeedUpdate)) * 1000;
-                    const speedMBps = (speed * 8) / (1024 * 1024);
-                    receiver.currentSpeed = speed;
-                    console.log(`Download speed: ${speedMBps.toFixed(2)} Mbps`);
-
-                    // Adaptive flow control
-                    if (speed > receiver.currentSpeed * 1.2) { // Speed increased by 20%
-                        conn.send({
-                            type: 'receiver-feedback',
-                            id: data.id,
-                            status: 'increase-speed',
-                            currentSpeed: speed
-                        });
-                    } else if (speed < receiver.currentSpeed * 0.8) { // Speed decreased by 20%
-                        conn.send({
-                            type: 'receiver-feedback',
-                            id: data.id,
-                            status: 'decrease-speed',
-                            currentSpeed: speed
-                        });
-                    }
-
-                    receiver.bytesInInterval = 0;
-                    receiver.lastSpeedUpdate = now;
-                }
-
-                // Check for missing chunks periodically
-                if (now - receiver.lastChunkRequest >= 2000) { // Every 2 seconds
-                    const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
-                    const missingChunks = [];
-                    
-                    for (let i = 0; i < expectedChunks; i++) {
-                        const offset = i * currentChunkSize;
-                        if (!receiver.receivedChunks.has(offset)) {
-                            missingChunks.push(offset);
-                        }
-                    }
-
-                    if (missingChunks.length > 0) {
-                        console.log(`Requesting ${missingChunks.length} missing chunks`);
-                        conn.send({
-                            type: 'chunk-request',
-                            id: data.id,
-                            chunks: missingChunks
-                        });
-                    }
-                    
-                    receiver.lastChunkRequest = now;
-                }
-
-                const progress = (receiver.receivedBytes / receiver.size) * 100;
-                updateProgress(receiver.progressBar, progress);
-
-                // Check if file is complete
-                if (receiver.receivedBytes >= receiver.size) {
-                    const allChunksReceived = verifyAllChunks(receiver);
-                    if (allChunksReceived) {
-                        console.log('File reception complete, processing...');
-                        completeFileTransfer(receiver);
-                    }
-                }
+                handleFileChunk(data);
             } else if (data.type === 'chunk-request') {
                 // Handle resending of missing chunks
                 resendMissingChunks(data.id, data.chunks);
             } else if (data.type === 'file-reject') {
                 addSystemMessage(`❌ File transfer rejected: ${data.reason}`);
+            }
+        }
+
+        // Handle file metadata
+        function handleFileMeta(data) {
+            if (!isFileSizeManageable(data.size)) {
+                conn.send({
+                    type: 'file-reject',
+                    id: data.id,
+                    reason: 'File size too large'
+                });
+                return;
+            }
+
+            console.log(`Receiving file: ${data.name} (${formatFileSize(data.size)})`);
+            addSystemMessage(`📥 Receiving file: ${data.name} (${formatFileSize(data.size)})`);
+            
+            // Enhanced receiver state tracking
+            fileReceivers.set(data.id, {
+                name: data.name,
+                size: data.size,
+                chunks: new Map(),
+                receivedBytes: 0,
+                messageDiv: addMessageToChat(data.name, 'file', 'received'),
+                startTime: Date.now(),
+                lastSpeedUpdate: Date.now(),
+                bytesInInterval: 0,
+                currentSpeed: 0,
+                missingChunks: new Set(),
+                lastChunkRequest: Date.now(),
+                receivedChunks: new Set()
+            });
+
+            const receiver = fileReceivers.get(data.id);
+            receiver.progressBar = createProgressBar(receiver.messageDiv);
+
+            // Send ready signal with receiver's preferred chunk size
+            conn.send({
+                type: 'receiver-ready',
+                id: data.id,
+                preferredChunkSize: INITIAL_CHUNK_SIZE,
+                maxParallelChunks: MAX_PENDING_CHUNKS
+            });
+        }
+
+        // Handle file chunk
+        function handleFileChunk(data) {
+            const receiver = fileReceivers.get(data.id);
+            if (!receiver) {
+                console.error('No receiver found for file:', data.id);
+                return;
+            }
+
+            const chunk = new Uint8Array(data.chunk);
+            receiver.chunks.set(data.offset, chunk);
+            receiver.receivedBytes += chunk.length;
+            receiver.bytesInInterval += chunk.length;
+            receiver.receivedChunks.add(data.offset);
+
+            updateReceiveSpeed(receiver);
+            checkMissingChunks(receiver, data.id);
+            updateReceiveProgress(receiver);
+            checkFileComplete(receiver);
+        }
+
+        // Update receive speed and send feedback
+        function updateReceiveSpeed(receiver) {
+            const now = Date.now();
+            if (now - receiver.lastSpeedUpdate >= SPEED_MEASUREMENT_INTERVAL) {
+                // Calculate current speed
+                const speed = (receiver.bytesInInterval / (now - receiver.lastSpeedUpdate)) * 1000;
+                const speedMBps = (speed * 8) / (1024 * 1024);
+                receiver.currentSpeed = speed;
+                console.log(`Download speed: ${speedMBps.toFixed(2)} Mbps`);
+
+                // Adaptive flow control
+                if (speed > receiver.currentSpeed * 1.2) { // Speed increased by 20%
+                    sendSpeedFeedback(receiver, 'increase-speed', speed);
+                } else if (speed < receiver.currentSpeed * 0.8) { // Speed decreased by 20%
+                    sendSpeedFeedback(receiver, 'decrease-speed', speed);
+                }
+
+                receiver.bytesInInterval = 0;
+                receiver.lastSpeedUpdate = now;
+            }
+        }
+
+        // Send speed feedback to sender
+        function sendSpeedFeedback(receiver, status, speed) {
+            conn.send({
+                type: 'receiver-feedback',
+                id: receiver.id,
+                status: status,
+                currentSpeed: speed
+            });
+        }
+
+        // Check for missing chunks
+        function checkMissingChunks(receiver, fileId) {
+            const now = Date.now();
+            if (now - receiver.lastChunkRequest >= 2000) { // Every 2 seconds
+                const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                const missingChunks = [];
+                
+                for (let i = 0; i < expectedChunks; i++) {
+                    const offset = i * currentChunkSize;
+                    if (!receiver.receivedChunks.has(offset)) {
+                        missingChunks.push(offset);
+                    }
+                }
+
+                if (missingChunks.length > 0) {
+                    console.log(`Requesting ${missingChunks.length} missing chunks`);
+                    conn.send({
+                        type: 'chunk-request',
+                        id: fileId,
+                        chunks: missingChunks
+                    });
+                }
+                
+                receiver.lastChunkRequest = now;
+            }
+        }
+
+        // Update receive progress
+        function updateReceiveProgress(receiver) {
+            const progress = (receiver.receivedBytes / receiver.size) * 100;
+            updateProgress(receiver.progressBar, progress);
+        }
+
+        // Check if file reception is complete
+        function checkFileComplete(receiver) {
+            if (receiver.receivedBytes >= receiver.size) {
+                const allChunksReceived = verifyAllChunks(receiver);
+                if (allChunksReceived) {
+                    console.log('File reception complete, processing...');
+                    completeFileTransfer(receiver);
+                }
             }
         }
 
@@ -1345,6 +1484,172 @@
                 addSystemMessage(`❌ Error processing file: ${err.message}`);
             }
         }
+
+        // QR Code variables and functions
+        let qrCode;
+        let html5QrcodeScanner;
+        const qrPanel = document.getElementById('qrPanel');
+        const container = document.querySelector('.container');
+
+        // QR Code management functions
+        function showQRPanel() {
+            qrPanel.classList.remove('hidden');
+            container.style.opacity = '0.3';
+            container.style.pointerEvents = 'none';
+        }
+
+        function hideQRPanel() {
+            qrPanel.classList.add('hidden');
+            container.style.opacity = '1';
+            container.style.pointerEvents = 'auto';
+            if (html5QrcodeScanner) {
+                if (html5QrcodeScanner.clear) {
+                    html5QrcodeScanner.clear().catch(err => console.log('Scanner clear error:', err));
+                } else if (html5QrcodeScanner.stop) {
+                    html5QrcodeScanner.stop().catch(err => console.log('Scanner stop error:', err));
+                }
+            }
+            // Reset reader view
+            document.getElementById('reader').classList.add('hidden');
+            document.getElementById('qrcode').classList.remove('hidden');
+        }
+
+        function generateQRCode(peerId) {
+            const qrContainer = document.getElementById('qrcode');
+            const qrPeerIdElement = document.getElementById('qrPeerId');
+            
+            qrContainer.innerHTML = ''; // Clear existing QR code
+            qrPeerIdElement.textContent = `Your ID: ${peerId}`; // Update peer ID display
+            
+            qrCode = new QRCode(qrContainer, {
+                text: peerId,
+                width: 220,
+                height: 220,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function initializeQRScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().catch(err => console.log('Scanner clear error:', err));
+            }
+
+            // Use back camera preferentially
+            Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length) {
+                    // Look for back camera first, fallback to any available camera
+                    let cameraId;
+                    
+                    // Try to find back camera (environment facing)
+                    const backCamera = devices.find(device => 
+                        device.label.toLowerCase().includes('back') || 
+                        device.label.toLowerCase().includes('rear') ||
+                        device.label.toLowerCase().includes('environment')
+                    );
+                    
+                    if (backCamera) {
+                        cameraId = backCamera.id;
+                        console.log('Using back camera:', backCamera.label);
+                    } else {
+                        // If no back camera found by label, use the last camera (often back camera on mobile)
+                        cameraId = devices[devices.length - 1].id;
+                        console.log('Using camera:', devices[devices.length - 1].label || 'Unknown camera');
+                    }
+                    
+                    const html5QrCode = new Html5Qrcode("reader");
+                    html5QrCode.start(
+                        cameraId,
+                        {
+                            fps: 10,
+                            qrbox: { width: 200, height: 200 },
+                            facingMode: "environment" // Prefer back camera
+                        },
+                        (decodedText) => {
+                            console.log('QR Code detected:', decodedText);
+                            html5QrCode.stop().then(() => {
+                                connectToPeer(decodedText);
+                                hideQRPanel();
+                            }).catch(err => console.log('Scanner stop error:', err));
+                        },
+                        (errorMessage) => {
+                            // Handle scan errors silently
+                        }
+                    ).catch(err => {
+                        console.error('Failed to start QR scanner:', err);
+                        addSystemMessage('❌ Camera access denied or not available');
+                    });
+                    
+                    // Store reference for cleanup
+                    html5QrcodeScanner = html5QrCode;
+                }
+            }).catch(err => {
+                console.error('Failed to get cameras:', err);
+                addSystemMessage('❌ No cameras found');
+            });
+        }
+
+        // QR Code event listeners
+        document.getElementById('scanButton').addEventListener('click', () => {
+            document.getElementById('reader').classList.remove('hidden');
+            document.getElementById('qrcode').classList.add('hidden');
+            initializeQRScanner();
+        });
+
+        document.getElementById('manualButton').addEventListener('click', () => {
+            hideQRPanel();
+            document.getElementById('peerIdInput').focus();
+        });
+
+        // Enhanced paste event handler for files and text
+        document.addEventListener('paste', async (e) => {
+            e.preventDefault(); // Prevent default paste behavior
+
+            // Check if we're pasting into the message input
+            const isMessageInput = e.target === messageInput;
+
+            // Handle files from clipboard (when user copies actual files, not paths)
+            if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                const file = e.clipboardData.files[0];
+                
+                if (!conn || !conn.open) {
+                    addSystemMessage('❌ Connect to a peer before sharing files');
+                    return;
+                }
+
+                if (!isFileSizeManageable(file.size)) {
+                    return;
+                }
+
+                addSystemMessage(`📎 Processing pasted file: ${file.name}`);
+                
+                // Create a new FileList and trigger file upload
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+                
+            } else if (isMessageInput && e.clipboardData) {
+                // Handle text paste in message input
+                const text = e.clipboardData.getData('text');
+                
+                // If it looks like a file path, don't auto-paste it and show a helpful message
+                if (text.includes('/') || text.includes('\\') || text.match(/^[A-Za-z]:\\/)) {
+                    addSystemMessage('ℹ️ File paths cannot be shared directly. Please copy and paste the actual file instead of its path.');
+                    return;
+                }
+                
+                // Insert the text at cursor position
+                const start = messageInput.selectionStart;
+                const end = messageInput.selectionEnd;
+                const currentValue = messageInput.value;
+                messageInput.value = currentValue.substring(0, start) + text + currentValue.substring(end);
+                messageInput.selectionStart = messageInput.selectionEnd = start + text.length;
+            }
+        });
     </script>
 </body>
-</html> 
+</html>
