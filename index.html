@@ -1636,12 +1636,6 @@
                 // Handle text paste in message input
                 const text = e.clipboardData.getData('text');
                 
-                // If it looks like a file path, don't auto-paste it and show a helpful message
-                if (text.includes('/') || text.includes('\\') || text.match(/^[A-Za-z]:\\/)) {
-                    addSystemMessage('ℹ️ File paths cannot be shared directly. Please copy and paste the actual file instead of its path.');
-                    return;
-                }
-                
                 // Insert the text at cursor position
                 const start = messageInput.selectionStart;
                 const end = messageInput.selectionEnd;
