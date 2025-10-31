@@ -1721,27 +1721,61 @@
                 maxParallelChunks: MAX_PENDING_CHUNKS
             });
             
-            // Now try to set up File System Access API (async, chunks will queue)
-            let fileHandle = null;
-            let writableStream = null;
-            
+            // Add a "Save File" button if File System Access API is available
+            // This requires a user gesture, so we can't show the picker automatically
             if (supportsFileSystemAccess) {
+                addSystemMessage(`💾 Click "Save File" button to choose save location for: ${data.name}`);
+                addSaveFileButton(receiver, data);
+            } else {
+                receiver.isInitializing = false;
+                console.log('ℹ️ File System Access API not supported in this browser. Using memory storage.');
+                addSystemMessage(`ℹ️ Using memory storage (browser doesn't support direct disk write)`);
+            }
+        }
+        
+        // Add a "Save File" button to the message that triggers the file picker on user click
+        function addSaveFileButton(receiver, fileMeta) {
+            const fileInfo = receiver.messageDiv.querySelector('.file-info');
+            if (!fileInfo) return;
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.marginTop = '8px';
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '8px';
+            
+            const saveButton = document.createElement('button');
+            saveButton.textContent = '💾 Save File';
+            saveButton.className = 'save-file-button';
+            saveButton.style.padding = '6px 12px';
+            saveButton.style.borderRadius = '4px';
+            saveButton.style.border = 'none';
+            saveButton.style.backgroundColor = '#007bff';
+            saveButton.style.color = 'white';
+            saveButton.style.cursor = 'pointer';
+            saveButton.style.fontSize = '14px';
+            
+            saveButton.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Disable button to prevent multiple clicks
+                saveButton.disabled = true;
+                saveButton.textContent = '⏳ Opening...';
+                
                 try {
-                    addSystemMessage(`💾 Direct disk write available! Choose save location for: ${data.name}`);
-                    
                     // Get file extension for proper MIME type
-                    const fileExtension = data.name.includes('.') 
-                        ? '.' + data.name.split('.').pop().toLowerCase()
+                    const fileExtension = fileMeta.name.includes('.') 
+                        ? '.' + fileMeta.name.split('.').pop().toLowerCase()
                         : '';
                     
                     // Build file picker options
                     const pickerOptions = {
-                        suggestedName: data.name
+                        suggestedName: fileMeta.name
                     };
                     
                     // Add file type restrictions only if we have a valid extension
                     if (fileExtension) {
-                        const mimeType = getMimeType(data.name);
+                        const mimeType = getMimeType(fileMeta.name);
                         if (mimeType !== 'application/octet-stream') {
                             pickerOptions.types = [{
                                 description: 'File',
@@ -1750,8 +1784,8 @@
                         }
                     }
                     
-                    fileHandle = await window.showSaveFilePicker(pickerOptions);
-                    writableStream = await fileHandle.createWritable();
+                    const fileHandle = await window.showSaveFilePicker(pickerOptions);
+                    const writableStream = await fileHandle.createWritable();
                     
                     // Update receiver with file handle and stream
                     receiver.fileHandle = fileHandle;
@@ -1763,33 +1797,41 @@
                     console.log('📁 File will be saved directly to:', fileHandle.name);
                     addSystemMessage(`✅ File will be saved directly to disk (no memory limit!)`);
                     
+                    // Update button
+                    saveButton.textContent = '✅ Saving...';
+                    saveButton.style.backgroundColor = '#28a745';
+                    
                     // Process any chunks that arrived while waiting
-                    await processQueuedChunks(receiver, data.id);
+                    await processQueuedChunks(receiver, fileMeta.id);
+                    
+                    // Hide button after a moment
+                    setTimeout(() => {
+                        buttonContainer.style.display = 'none';
+                    }, 1000);
                     
                 } catch (err) {
                     receiver.isInitializing = false;
-                    if (err.name !== 'AbortError') {
+                    if (err.name === 'AbortError') {
+                        // User cancelled
+                        saveButton.disabled = false;
+                        saveButton.textContent = '💾 Save File';
+                        addSystemMessage(`❌ File save cancelled by user`);
+                    } else {
+                        // Error occurred
                         console.warn('⚠️ File System Access API failed, falling back to memory storage:', err);
                         addSystemMessage(`⚠️ Direct disk write unavailable, using memory storage`);
+                        receiver.isInitializing = false;
+                        saveButton.textContent = '⚠️ Using Memory';
+                        saveButton.style.backgroundColor = '#ffc107';
+                        saveButton.style.color = '#000';
                         // Process queued chunks with memory storage
-                        await processQueuedChunks(receiver, data.id);
-                    } else {
-                        // User cancelled, reject the file
-                        addSystemMessage(`❌ File transfer cancelled by user`);
-                        fileReceivers.delete(data.id);
-                        conn.send({
-                            type: 'file-reject',
-                            id: data.id,
-                            reason: 'User cancelled'
-                        });
-                        return;
+                        await processQueuedChunks(receiver, fileMeta.id);
                     }
                 }
-            } else {
-                receiver.isInitializing = false;
-                console.log('ℹ️ File System Access API not supported in this browser. Using memory storage.');
-                addSystemMessage(`ℹ️ Using memory storage (browser doesn't support direct disk write)`);
-            }
+            };
+            
+            buttonContainer.appendChild(saveButton);
+            fileInfo.appendChild(buttonContainer);
         }
         
         // Process chunks that arrived while waiting for save dialog
@@ -2760,3 +2802,4 @@
     </script>
 </body>
 </html>
+
