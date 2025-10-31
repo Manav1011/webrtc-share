@@ -1291,9 +1291,12 @@
         const MIN_CHUNK_SIZE = 262144; // 256KB minimum
         const MAX_CHUNK_SIZE = 4194304; // 4MB maximum
         const INITIAL_CHUNK_SIZE = 1048576; // Start with 1MB chunks
-        const MAX_MEMORY_USAGE = 1.5 * 1024 * 1024 * 1024; // 1.5GB max memory usage
+        const MAX_MEMORY_USAGE = 1.5 * 1024 * 1024 * 1024; // 1.5GB max memory usage (deprecated - using streaming)
         const MAX_PENDING_CHUNKS = 128; // Maximum chunks in flight
         const SPEED_MEASUREMENT_INTERVAL = 500; // 500ms
+        
+        // Check if File System Access API is available
+        const supportsFileSystemAccess = 'showSaveFilePicker' in window;
         
         let currentChunkSize = INITIAL_CHUNK_SIZE;
         let fileQueue = [];
@@ -1535,13 +1538,16 @@
         }
 
         // Function to check if file size is manageable
+        // With streaming, we can handle much larger files
         function isFileSizeManageable(fileSize) {
-            if (fileSize > MAX_MEMORY_USAGE) {
-                const maxSize = formatFileSize(MAX_MEMORY_USAGE);
-                addSystemMessage(`⚠️ File is too large. Maximum recommended size is ${maxSize} to ensure stable transfer.`);
-                return false;
+            // For very large files (>10GB), warn but allow
+            const veryLargeLimit = 10 * 1024 * 1024 * 1024; // 10GB
+            if (fileSize > veryLargeLimit) {
+                const maxSize = formatFileSize(veryLargeLimit);
+                addSystemMessage(`⚠️ File is very large (${formatFileSize(fileSize)}). Transfer may take a while.`);
+                return true; // Still allow, just warn
             }
-            return true;
+            return true; // Always allow with streaming
         }
 
         // Enhanced file upload handler
@@ -1651,11 +1657,11 @@
         const fileReceivers = new Map();
 
         // Enhanced file receiver to handle optimized transfers
-        function handleReceivedFile(data) {
+        async function handleReceivedFile(data) {
             if (data.type === 'file-meta') {
-                handleFileMeta(data);
+                await handleFileMeta(data);
             } else if (data.type === 'file-chunk') {
-                handleFileChunk(data);
+                await handleFileChunk(data);
             } else if (data.type === 'chunk-request') {
                 // Handle resending of missing chunks
                 resendMissingChunks(data.id, data.chunks);
@@ -1665,7 +1671,7 @@
         }
 
         // Handle file metadata
-        function handleFileMeta(data) {
+        async function handleFileMeta(data) {
             if (!isFileSizeManageable(data.size)) {
                 conn.send({
                     type: 'file-reject',
@@ -1678,11 +1684,12 @@
             console.log(`Receiving file: ${data.name} (${formatFileSize(data.size)})`);
             addSystemMessage(`📥 Receiving file: ${data.name} (${formatFileSize(data.size)})`);
             
-            // Enhanced receiver state tracking
-            fileReceivers.set(data.id, {
+            // CREATE RECEIVER IMMEDIATELY to handle incoming chunks
+            // This prevents "No receiver found" errors while waiting for save dialog
+            const receiver = {
                 name: data.name,
                 size: data.size,
-                chunks: new Map(),
+                chunks: new Map(), // Store chunks temporarily
                 receivedBytes: 0,
                 messageDiv: addMessageToChat(data.name, 'file', 'received'),
                 startTime: Date.now(),
@@ -1691,23 +1698,157 @@
                 currentSpeed: 0,
                 missingChunks: new Set(),
                 lastChunkRequest: Date.now(),
-                receivedChunks: new Set()
-            });
-
-            const receiver = fileReceivers.get(data.id);
+                receivedChunks: new Set(),
+                fileHandle: null,
+                writableStream: null,
+                useStreaming: false,
+                chunkOffsets: [],
+                isInitializing: true, // Flag to track if we're waiting for save dialog
+                pendingChunks: [], // Queue chunks that arrive during initialization
+                pendingWrites: new Set(), // Track pending write operations
+                writeQueue: Promise.resolve(), // Serialize writes to prevent race conditions
+                writeQueueRunning: false // Track if queue processor is running
+            };
+            
+            fileReceivers.set(data.id, receiver);
             receiver.progressBar = createProgressBar(receiver.messageDiv);
-
-            // Send ready signal with receiver's preferred chunk size
+            
+            // Send ready signal immediately so sender can start sending chunks
             conn.send({
                 type: 'receiver-ready',
                 id: data.id,
                 preferredChunkSize: INITIAL_CHUNK_SIZE,
                 maxParallelChunks: MAX_PENDING_CHUNKS
             });
+            
+            // Now try to set up File System Access API (async, chunks will queue)
+            let fileHandle = null;
+            let writableStream = null;
+            
+            if (supportsFileSystemAccess) {
+                try {
+                    addSystemMessage(`💾 Direct disk write available! Choose save location for: ${data.name}`);
+                    
+                    // Get file extension for proper MIME type
+                    const fileExtension = data.name.includes('.') 
+                        ? '.' + data.name.split('.').pop().toLowerCase()
+                        : '';
+                    
+                    // Build file picker options
+                    const pickerOptions = {
+                        suggestedName: data.name
+                    };
+                    
+                    // Add file type restrictions only if we have a valid extension
+                    if (fileExtension) {
+                        const mimeType = getMimeType(data.name);
+                        if (mimeType !== 'application/octet-stream') {
+                            pickerOptions.types = [{
+                                description: 'File',
+                                accept: { [mimeType]: [fileExtension] }
+                            }];
+                        }
+                    }
+                    
+                    fileHandle = await window.showSaveFilePicker(pickerOptions);
+                    writableStream = await fileHandle.createWritable();
+                    
+                    // Update receiver with file handle and stream
+                    receiver.fileHandle = fileHandle;
+                    receiver.writableStream = writableStream;
+                    receiver.useStreaming = true;
+                    receiver.isInitializing = false; // Ready to write
+                    
+                    console.log('✅ Using File System Access API for direct disk write');
+                    console.log('📁 File will be saved directly to:', fileHandle.name);
+                    addSystemMessage(`✅ File will be saved directly to disk (no memory limit!)`);
+                    
+                    // Process any chunks that arrived while waiting
+                    await processQueuedChunks(receiver, data.id);
+                    
+                } catch (err) {
+                    receiver.isInitializing = false;
+                    if (err.name !== 'AbortError') {
+                        console.warn('⚠️ File System Access API failed, falling back to memory storage:', err);
+                        addSystemMessage(`⚠️ Direct disk write unavailable, using memory storage`);
+                        // Process queued chunks with memory storage
+                        await processQueuedChunks(receiver, data.id);
+                    } else {
+                        // User cancelled, reject the file
+                        addSystemMessage(`❌ File transfer cancelled by user`);
+                        fileReceivers.delete(data.id);
+                        conn.send({
+                            type: 'file-reject',
+                            id: data.id,
+                            reason: 'User cancelled'
+                        });
+                        return;
+                    }
+                }
+            } else {
+                receiver.isInitializing = false;
+                console.log('ℹ️ File System Access API not supported in this browser. Using memory storage.');
+                addSystemMessage(`ℹ️ Using memory storage (browser doesn't support direct disk write)`);
+            }
+        }
+        
+        // Process chunks that arrived while waiting for save dialog
+        async function processQueuedChunks(receiver, fileId) {
+            // Sort chunks by offset and write them
+            const sortedChunks = Array.from(receiver.chunks.entries())
+                .sort(([offsetA], [offsetB]) => offsetA - offsetB);
+            
+            console.log(`📦 Processing ${sortedChunks.length} queued chunks...`);
+            
+            const writePromises = [];
+            
+            for (const [offset, chunk] of sortedChunks) {
+                // During initialization, chunks are marked as received but not yet written
+                // So we write ALL chunks in the map, regardless of receivedChunks status
+                // The receivedChunks check is only for preventing duplicate processing of incoming chunks
+                
+                if (receiver.useStreaming && receiver.writableStream) {
+                    const writePromise = (async () => {
+                        // Chain this write to the queue to ensure sequential execution
+                        receiver.writeQueue = receiver.writeQueue.then(async () => {
+                            try {
+                                // Seek to the correct position and write atomically
+                                await receiver.writableStream.seek(offset);
+                                await receiver.writableStream.write(chunk);
+                                console.log(`✅ Wrote queued chunk at offset ${offset} (${chunk.length} bytes)`);
+                            } catch (err) {
+                                console.error('Error writing queued chunk:', err);
+                                receiver.useStreaming = false;
+                                throw err;
+                            } finally {
+                                receiver.pendingWrites.delete(writePromise);
+                            }
+                        });
+                        
+                        await receiver.writeQueue;
+                    })();
+                    
+                    receiver.pendingWrites.add(writePromise);
+                    writePromises.push(writePromise);
+                }
+            }
+            
+            // Remove chunks from memory immediately after queueing writes
+            // This prevents them from being written again if they arrive later
+            receiver.chunks.clear();
+            
+            // Wait for all writes to complete
+            if (writePromises.length > 0) {
+                await Promise.all(writePromises);
+                console.log(`✅ Finished writing ${writePromises.length} queued chunks`);
+            }
+            
+            updateReceiveProgress(receiver);
+            checkFileComplete(receiver);
         }
 
         // Handle file chunk
-        function handleFileChunk(data) {
+        async function handleFileChunk(data) {
             const receiver = fileReceivers.get(data.id);
             if (!receiver) {
                 console.error('No receiver found for file:', data.id);
@@ -1715,10 +1856,80 @@
             }
 
             const chunk = new Uint8Array(data.chunk);
-            receiver.chunks.set(data.offset, chunk);
+            
+            // Check if chunk was already processed (prevent duplicate writes)
+            if (receiver.receivedChunks.has(data.offset)) {
+                console.log(`⚠️ Chunk at offset ${data.offset} already received, skipping duplicate`);
+                return;
+            }
+            
+            // Mark as received BEFORE processing to prevent race conditions
+            receiver.receivedChunks.add(data.offset);
+            
+            // If still initializing (waiting for save dialog), store in memory
+            if (receiver.isInitializing) {
+                receiver.chunks.set(data.offset, chunk);
+                receiver.receivedBytes += chunk.length;
+                receiver.bytesInInterval += chunk.length;
+                
+                // Update progress while waiting
+                updateReceiveProgress(receiver);
+                return; // Don't process further until initialization completes
+            }
+            
+            // If streaming is enabled, write directly to disk
+            if (receiver.useStreaming && receiver.writableStream) {
+                try {
+                    // Serialize writes using a queue to prevent race conditions
+                    const writePromise = (async () => {
+                        // Chain this write to the queue to ensure sequential execution
+                        receiver.writeQueue = receiver.writeQueue.then(async () => {
+                            try {
+                                // Seek to the correct position and write atomically
+                                await receiver.writableStream.seek(data.offset);
+                                await receiver.writableStream.write(chunk);
+                                
+                                // Verify we wrote the correct amount
+                                if (chunk.length !== data.chunk.length) {
+                                    console.warn(`⚠️ Chunk size mismatch at offset ${data.offset}: expected ${data.chunk.length}, got ${chunk.length}`);
+                                }
+                                
+                                // Chunk is written to disk, we can free memory immediately
+                                if (receiver.receivedBytes % (10 * 1024 * 1024) < chunk.length) {
+                                    // Log every 10MB
+                                    console.log(`💾 Written ${formatFileSize(receiver.receivedBytes)}/${formatFileSize(receiver.size)} directly to disk`);
+                                }
+                            } catch (err) {
+                                console.error(`Error writing chunk at offset ${data.offset}:`, err);
+                                throw err; // Re-throw to be caught by outer catch
+                            }
+                        }).catch(err => {
+                            // Ensure queue continues even if one write fails
+                            console.error('Write queue error:', err);
+                            throw err;
+                        });
+                        
+                        await receiver.writeQueue;
+                    })();
+                    
+                    receiver.pendingWrites.add(writePromise);
+                    await writePromise;
+                } catch (err) {
+                    console.error('Error writing chunk to disk:', err);
+                    console.error(`  Offset: ${data.offset}, Chunk size: ${chunk.length}`);
+                    // Fall back to memory storage if disk write fails
+                    receiver.chunks.set(data.offset, chunk);
+                    receiver.useStreaming = false;
+                    addSystemMessage(`⚠️ Disk write error, falling back to memory storage`);
+                }
+            } else {
+                // Store in memory (fallback for browsers without File System Access API)
+                receiver.chunks.set(data.offset, chunk);
+            }
+            
             receiver.receivedBytes += chunk.length;
             receiver.bytesInInterval += chunk.length;
-            receiver.receivedChunks.add(data.offset);
+            // Note: receivedChunks already added at the start to prevent duplicates
 
             updateReceiveSpeed(receiver);
             checkMissingChunks(receiver, data.id);
@@ -1792,26 +2003,48 @@
         }
 
         // Check if file reception is complete
-        function checkFileComplete(receiver) {
+        async function checkFileComplete(receiver) {
             if (receiver.receivedBytes >= receiver.size) {
                 const allChunksReceived = verifyAllChunks(receiver);
                 if (allChunksReceived) {
+                    // If streaming, wait for all pending writes to complete
+                    if (receiver.useStreaming && receiver.pendingWrites && receiver.pendingWrites.size > 0) {
+                        console.log(`⏳ Waiting for ${receiver.pendingWrites.size} pending writes before finalizing...`);
+                        await Promise.all(Array.from(receiver.pendingWrites));
+                        console.log('✅ All writes completed, finalizing file...');
+                    }
+                    
                     console.log('File reception complete, processing...');
-                    completeFileTransfer(receiver);
+                    await completeFileTransfer(receiver);
                 }
             }
         }
 
         // Helper function to verify all chunks are received
         function verifyAllChunks(receiver) {
-            const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
-            for (let i = 0; i < expectedChunks; i++) {
-                const offset = i * currentChunkSize;
-                if (!receiver.chunks.has(offset)) {
-                    return false;
+            // When streaming, chunks are written to disk and removed from memory
+            // So we check receivedChunks Set instead of chunks Map
+            if (receiver.useStreaming) {
+                const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                for (let i = 0; i < expectedChunks; i++) {
+                    const offset = i * currentChunkSize;
+                    if (!receiver.receivedChunks.has(offset)) {
+                        console.log(`Missing chunk at offset ${offset}`);
+                        return false;
+                    }
                 }
+                return true;
+            } else {
+                // For memory storage, check chunks Map
+                const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                for (let i = 0; i < expectedChunks; i++) {
+                    const offset = i * currentChunkSize;
+                    if (!receiver.chunks.has(offset)) {
+                        return false;
+                    }
+                }
+                return true;
             }
-            return true;
         }
 
         // Function to resend missing chunks
@@ -1997,6 +2230,16 @@
 
         // Initialize PeerJS when the page loads
         initializePeer();
+        
+        // Check and log browser support for direct disk write
+        if (supportsFileSystemAccess) {
+            console.log('✅ Direct disk write supported! Files will be saved directly to disk.');
+            console.log('📋 Testing: Send a large file to see the save dialog appear.');
+        } else {
+            console.log('ℹ️ Direct disk write not supported in this browser.');
+            console.log('💡 Use Chrome/Edge 86+ for direct disk write feature.');
+            console.log('📋 Current browser will use memory storage (limited by available RAM).');
+        }
 
         // Function to view file (opens in new tab for viewable files)
         function viewFile(url, fileName, fileType) {
@@ -2048,35 +2291,117 @@
             overlay.classList.remove('show');
         }
 
-        // Modified completeFileTransfer to handle cleanup
-        function completeFileTransfer(receiver) {
+        // Modified completeFileTransfer to handle cleanup and streaming
+        async function completeFileTransfer(receiver) {
             try {
                 const transferTime = (Date.now() - receiver.startTime) / 1000;
                 const averageSpeed = (receiver.size / (1024 * 1024)) / transferTime;
                 console.log(`File transfer completed in ${transferTime.toFixed(1)}s at ${averageSpeed.toFixed(2)} MB/s`);
 
-                // Create a sorted array of chunks
-                const sortedChunks = Array.from(receiver.chunks.entries())
-                    .sort(([offsetA], [offsetB]) => offsetA - offsetB)
-                    .map(([_, chunk]) => chunk);
-
-                const combinedArray = new Uint8Array(receiver.size);
-                let offset = 0;
+                let url = null;
+                const fileType = getFileType(receiver.name);
                 
-                for (const chunk of sortedChunks) {
-                    combinedArray.set(chunk, offset);
-                    offset += chunk.length;
+                // If streaming to disk, close the stream and create blob URL for preview
+                if (receiver.useStreaming && receiver.writableStream) {
+                    // Ensure all writes are complete before closing
+                    try {
+                        // Wait for all pending write operations to complete
+                        if (receiver.pendingWrites && receiver.pendingWrites.size > 0) {
+                            console.log(`⏳ Waiting for ${receiver.pendingWrites.size} pending writes to complete...`);
+                            await Promise.all(Array.from(receiver.pendingWrites));
+                            console.log('✅ All writes completed');
+                        }
+                        
+                        // Also wait for the write queue to finish processing
+                        await receiver.writeQueue;
+                        console.log('✅ Write queue finished');
+                        
+                        // Close the stream FIRST to flush all buffered writes
+                        // This ensures the file on disk reflects all writes
+                        await receiver.writableStream.close();
+                        console.log('✅ Stream closed and flushed');
+                        
+                        // Give a small delay to ensure OS has flushed to disk
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        // Now check file size AFTER closing
+                        const finalFile = await receiver.fileHandle.getFile();
+                        const finalSize = finalFile.size;
+                        
+                        console.log(`📊 File size after close: ${formatFileSize(finalSize)}, expected: ${formatFileSize(receiver.size)}`);
+                        
+                        // Verify file size matches expected size
+                        if (finalSize !== receiver.size) {
+                            console.error(`❌ File size mismatch: expected ${receiver.size}, got ${finalSize}`);
+                            
+                            // Verify all chunks were received
+                            const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                            let missingChunks = [];
+                            for (let i = 0; i < expectedChunks; i++) {
+                                const offset = i * currentChunkSize;
+                                if (!receiver.receivedChunks.has(offset)) {
+                                    missingChunks.push(offset);
+                                }
+                            }
+                            
+                            if (missingChunks.length > 0) {
+                                console.error(`❌ Missing ${missingChunks.length} chunks:`, missingChunks);
+                                addSystemMessage(`⚠️ File transfer incomplete - missing ${missingChunks.length} chunks. File may be corrupted.`);
+                            } else {
+                                // All chunks received but file size wrong - this is a write error
+                                console.error(`❌ All chunks received but file size incorrect - write error detected`);
+                                addSystemMessage(`⚠️ File write error detected - file may be corrupted`);
+                            }
+                        }
+                        
+                        console.log('✅ File written directly to disk - no memory used!');
+                        console.log(`📁 File saved: ${receiver.fileHandle?.name || receiver.name}`);
+                        console.log(`📊 Final file size: ${formatFileSize(finalSize)}`);
+                        addSystemMessage(`✅ File saved directly to disk: ${receiver.fileHandle?.name || receiver.name}`);
+                        
+                        url = URL.createObjectURL(finalFile);
+                        
+                        // Clear chunks from memory since they're already on disk
+                        receiver.chunks.clear();
+                    } catch (err) {
+                        console.error('Error finalizing file:', err);
+                        addSystemMessage(`⚠️ Error finalizing file: ${err.message}`);
+                        // Try to close anyway
+                        try {
+                            if (receiver.pendingWrites && receiver.pendingWrites.size > 0) {
+                                await Promise.all(Array.from(receiver.pendingWrites));
+                            }
+                            await receiver.writableStream.close();
+                        } catch (closeErr) {
+                            console.error('Error closing stream:', closeErr);
+                        }
+                    }
+                } else {
+                    // Fallback: combine chunks in memory (for browsers without File System Access API)
+                    const sortedChunks = Array.from(receiver.chunks.entries())
+                        .sort(([offsetA], [offsetB]) => offsetA - offsetB)
+                        .map(([_, chunk]) => chunk);
+
+                    const combinedArray = new Uint8Array(receiver.size);
+                    let offset = 0;
+                    
+                    for (const chunk of sortedChunks) {
+                        combinedArray.set(chunk, offset);
+                        offset += chunk.length;
+                    }
+
+                    const mimeType = getMimeType(receiver.name);
+                    const blob = new Blob([combinedArray], { type: mimeType });
+                    url = URL.createObjectURL(blob);
+                    
+                    // Cleanup memory
+                    receiver.chunks.clear();
                 }
 
-                const mimeType = getMimeType(receiver.name);
-                const blob = new Blob([combinedArray], { type: mimeType });
-                const url = URL.createObjectURL(blob);
-
                 // Add preview for images and videos
-                const fileType = getFileType(receiver.name);
                 const previewContainer = receiver.messageDiv.querySelector('.media-preview');
                 
-                if (previewContainer) {
+                if (previewContainer && url) {
                     if (fileType === 'image') {
                         const img = document.createElement('img');
                         img.src = url;
@@ -2090,12 +2415,14 @@
                     }
                 }
 
-                // Make the entire message clickable for opening/downloading
-                receiver.messageDiv.onclick = (e) => {
-                    // Prevent click when clicking on video controls or buttons
-                    if (e.target.tagName === 'VIDEO' || e.target.tagName === 'BUTTON') return;
-                    viewFile(url, receiver.name, fileType);
-                };
+                // Make the entire message clickable for opening/downloading (only if URL exists)
+                if (url) {
+                    receiver.messageDiv.onclick = (e) => {
+                        // Prevent click when clicking on video controls or buttons
+                        if (e.target.tagName === 'VIDEO' || e.target.tagName === 'BUTTON') return;
+                        viewFile(url, receiver.name, fileType);
+                    };
+                }
 
                 // Create buttons container
                 const buttonsContainer = document.createElement('div');
@@ -2106,7 +2433,7 @@
                 const downloadIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
 
                 // Create View button (for viewable files)
-                if (['image', 'video', 'pdf'].includes(fileType)) {
+                if (['image', 'video', 'pdf'].includes(fileType) && url) {
                     const viewBtn = document.createElement('button');
                     viewBtn.className = 'file-download-btn';
                     viewBtn.innerHTML = viewIcon + '<span>View</span>';
@@ -2117,15 +2444,28 @@
                     buttonsContainer.appendChild(viewBtn);
                 }
 
-                // Always create Download button for all files
-                const downloadBtn = document.createElement('button');
-                downloadBtn.className = 'file-download-btn';
-                downloadBtn.innerHTML = downloadIcon + '<span>Download</span>';
-                downloadBtn.onclick = (e) => {
-                    e.stopPropagation(); // Prevent triggering the message click
-                    downloadFile(url, receiver.name);
-                };
-                buttonsContainer.appendChild(downloadBtn);
+                // For streaming files, show "Open" button instead of download
+                if (receiver.useStreaming && receiver.fileHandle) {
+                    const openBtn = document.createElement('button');
+                    openBtn.className = 'file-download-btn';
+                    openBtn.innerHTML = downloadIcon + '<span>Open</span>';
+                    openBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        // File is already saved, just show a message
+                        addSystemMessage(`✅ File saved to disk: ${receiver.name}`);
+                    };
+                    buttonsContainer.appendChild(openBtn);
+                } else if (url) {
+                    // Always create Download button for non-streaming files
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.className = 'file-download-btn';
+                    downloadBtn.innerHTML = downloadIcon + '<span>Download</span>';
+                    downloadBtn.onclick = (e) => {
+                        e.stopPropagation(); // Prevent triggering the message click
+                        downloadFile(url, receiver.name);
+                    };
+                    buttonsContainer.appendChild(downloadBtn);
+                }
 
                 receiver.messageDiv.querySelector('.file-info').appendChild(buttonsContainer);
                 updateProgress(receiver.progressBar, 100);
