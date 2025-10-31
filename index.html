@@ -202,6 +202,8 @@
             border-radius: 10px;
             max-width: 70%;
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
             animation: fadeIn 0.2s ease;
             position: relative;
             font-size: 0.875rem;
@@ -223,10 +225,16 @@
             background: rgba(30, 62, 98, 0.3);
             align-self: flex-start;
             margin: 0.25rem 0;
+            position: relative;
+            z-index: 1;
         }
 
         .message-text-content {
             line-height: 1.5;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            word-break: break-word;
         }
 
         .message-text-content strong {
@@ -255,8 +263,16 @@
             padding: 0.75rem;
             border-radius: 8px;
             overflow-x: auto;
+            overflow-y: hidden;
             margin: 0.5rem 0;
             border-left: 3px solid #FF6500;
+            max-width: 100%;
+            width: 100%;
+            box-sizing: border-box;
+            white-space: pre;
+            position: relative;
+            display: block;
+            z-index: 1;
         }
 
         .message-text-content pre code {
@@ -265,6 +281,8 @@
             border-radius: 0;
             color: inherit;
             font-size: 0.875em;
+            white-space: pre;
+            display: block;
         }
 
         .message-text-content blockquote {
@@ -291,11 +309,6 @@
             align-items: center;
             gap: 0.75rem;
             margin: 0.25rem 0;
-        }
-
-        .file-icon {
-            font-size: 1.25rem;
-            color: #FF6500;
         }
 
         .empty-chat {
@@ -594,35 +607,82 @@
         .file-info {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .file-icon {
+            font-size: 1.25rem;
+            color: #FF6500;
+            flex-shrink: 0;
+        }
+
+        .file-name-container {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #e0e0e0;
+            font-size: 0.875rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .file-size {
             font-size: 0.75rem;
-            opacity: 0.7;
+            opacity: 0.6;
+            color: rgba(224, 224, 224, 0.6);
         }
 
         .file-buttons {
             display: flex;
             gap: 0.5rem;
             align-items: center;
-            margin-left: auto;
+            flex-shrink: 0;
         }
 
         .file-download-btn {
-            background: none;
-            border: none;
+            background: rgba(255, 101, 0, 0.1);
+            border: 1px solid rgba(255, 101, 0, 0.2);
             color: #FF6500;
             cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.875rem;
+            padding: 0.5rem 0.875rem;
+            border-radius: 8px;
+            font-size: 0.8125rem;
+            font-weight: 500;
             transition: all 0.2s ease;
             white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            min-width: auto;
         }
 
         .file-download-btn:hover {
-            background: rgba(255, 101, 0, 0.1);
+            background: rgba(255, 101, 0, 0.2);
+            border-color: rgba(255, 101, 0, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .file-download-btn:active {
+            transform: translateY(0);
+        }
+
+        .file-download-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            flex-shrink: 0;
+        }
+
+        .file-download-btn span {
+            line-height: 1;
         }
 
         .timestamp {
@@ -1774,6 +1834,42 @@
             return 'other';
         }
 
+        // Function to simplify file name (remove long IDs, keep meaningful part)
+        function simplifyFileName(fileName) {
+            if (!fileName) return 'Unknown File';
+            
+            // Extract extension
+            const lastDot = fileName.lastIndexOf('.');
+            const extension = lastDot > 0 ? fileName.substring(lastDot) : '';
+            const nameWithoutExt = lastDot > 0 ? fileName.substring(0, lastDot) : fileName;
+            
+            // Remove common ID patterns (long alphanumeric strings)
+            // Pattern: matches strings like "01K73GMFG2Q037WKA2Z69S" or similar
+            let simplified = nameWithoutExt
+                .replace(/^[A-Z0-9]{10,}-/g, '') // Remove leading long IDs
+                .replace(/-[A-Z0-9]{10,}/g, '')  // Remove trailing long IDs
+                .replace(/[A-Z0-9]{12,}/g, '')    // Remove any remaining long IDs
+                .replace(/^-+/g, '')              // Remove leading dashes
+                .replace(/-+$/g, '')              // Remove trailing dashes
+                .replace(/-+/g, '-')              // Replace multiple dashes with single
+                .trim();
+            
+            // If we removed everything, keep the original name but truncate
+            if (!simplified || simplified.length < 3) {
+                simplified = nameWithoutExt.length > 30 
+                    ? nameWithoutExt.substring(0, 30) + '...' 
+                    : nameWithoutExt;
+            }
+            
+            // Clean up common suffixes
+            simplified = simplified
+                .replace(/-NONEDIT$/i, '')
+                .replace(/-EDIT$/i, '')
+                .trim();
+            
+            return simplified + extension;
+        }
+
         // Function to get MIME type
         function getMimeType(fileName) {
             const extension = fileName.toLowerCase().split('.').pop();
@@ -1807,13 +1903,16 @@
                     messageDiv.className += ' with-preview';
                 }
                 
-                const size = content.size ? `(${formatFileSize(content.size)})` : '';
+                const size = content.size ? formatFileSize(content.size) : '';
+                const simplifiedName = simplifyFileName(content);
                 messageDiv.className += ' file-message';
                 messageDiv.innerHTML = `
                     <div class="file-info">
                         <span class="file-icon">📎</span>
-                        <span>${content}</span>
-                        <span class="file-size">${size}</span>
+                        <div class="file-name-container">
+                            <span class="file-name" title="${content}">${simplifiedName}</span>
+                            ${size ? `<span class="file-size">${size}</span>` : ''}
+                        </div>
                     </div>
                 `;
 
@@ -2002,12 +2101,15 @@
                 const buttonsContainer = document.createElement('div');
                 buttonsContainer.className = 'file-buttons';
 
-                // Create View button (for viewable files) or Download button (for others)
-                const viewBtn = document.createElement('button');
-                viewBtn.className = 'file-download-btn';
-                
+                // SVG icons
+                const viewIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+                const downloadIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+
+                // Create View button (for viewable files)
                 if (['image', 'video', 'pdf'].includes(fileType)) {
-                    viewBtn.innerHTML = '👁️ View';
+                    const viewBtn = document.createElement('button');
+                    viewBtn.className = 'file-download-btn';
+                    viewBtn.innerHTML = viewIcon + '<span>View</span>';
                     viewBtn.onclick = (e) => {
                         e.stopPropagation(); // Prevent triggering the message click
                         viewFile(url, receiver.name, fileType);
@@ -2018,7 +2120,7 @@
                 // Always create Download button for all files
                 const downloadBtn = document.createElement('button');
                 downloadBtn.className = 'file-download-btn';
-                downloadBtn.innerHTML = '⬇️ Download';
+                downloadBtn.innerHTML = downloadIcon + '<span>Download</span>';
                 downloadBtn.onclick = (e) => {
                     e.stopPropagation(); // Prevent triggering the message click
                     downloadFile(url, receiver.name);
