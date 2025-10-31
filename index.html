@@ -13,8 +13,7 @@
         }
 
         body {
-            background: url('Pasted image (2).png');
-            backdrop-filter: blur(56px) brightness(0.4);
+            background: #28282B;
             min-height: 100dvh;
             display: flex;
             flex-direction: column;
@@ -81,9 +80,50 @@
             padding: 0.875rem;
             border-radius: 12px;
             display: flex;
-            gap: 0.75rem;
+            flex-direction: column;
+            gap: 0.5rem;
             backdrop-filter: blur(8px);
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 0.75rem;
             align-items: center;
+        }
+
+        .format-toolbar {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.5rem;
+            background: rgba(11, 25, 44, 0.2);
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        .format-btn {
+            background: transparent;
+            border: 1px solid rgba(30, 62, 98, 0.3);
+            color: #e0e0e0;
+            padding: 0.375rem 0.625rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+        }
+
+        .format-btn:hover {
+            background: rgba(255, 101, 0, 0.1);
+            border-color: rgba(255, 101, 0, 0.3);
+        }
+
+        .format-btn.active {
+            background: rgba(255, 101, 0, 0.2);
+            border-color: #FF6500;
         }
 
         .message-input {
@@ -96,6 +136,11 @@
             transition: all 0.2s ease;
             background: rgba(11, 25, 44, 0.15);
             color: #e0e0e0;
+            min-height: 44px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
 
         .message-input:focus {
@@ -103,8 +148,23 @@
             box-shadow: 0 0 0 2px rgba(255, 101, 0, 0.1);
         }
 
-        .message-input::placeholder {
+        .message-input[contenteditable="true"]:empty:before {
+            content: attr(placeholder);
             color: rgba(224, 224, 224, 0.4);
+            pointer-events: none;
+        }
+
+        .message-input::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .message-input::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .message-input::-webkit-scrollbar-thumb {
+            background: rgba(255, 101, 0, 0.3);
+            border-radius: 2px;
         }
 
         .file-upload {
@@ -165,6 +225,65 @@
             margin: 0.25rem 0;
         }
 
+        .message-text-content {
+            line-height: 1.5;
+        }
+
+        .message-text-content strong {
+            font-weight: 600;
+        }
+
+        .message-text-content em {
+            font-style: italic;
+        }
+
+        .message-text-content s {
+            text-decoration: line-through;
+        }
+
+        .message-text-content code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.125rem 0.375rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85em;
+            color: #FF6500;
+        }
+
+        .message-text-content pre {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 0.75rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            border-left: 3px solid #FF6500;
+        }
+
+        .message-text-content pre code {
+            background: none;
+            padding: 0;
+            border-radius: 0;
+            color: inherit;
+            font-size: 0.875em;
+        }
+
+        .message-text-content blockquote {
+            border-left: 3px solid rgba(255, 101, 0, 0.5);
+            padding-left: 0.75rem;
+            margin: 0.5rem 0;
+            color: rgba(224, 224, 224, 0.8);
+            font-style: italic;
+        }
+
+        .message-text-content ul, .message-text-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .message-text-content li {
+            margin: 0.25rem 0;
+        }
+
         .message.file {
             background: rgba(11, 25, 44, 0.4);
             align-self: flex-start;
@@ -207,6 +326,18 @@
             .input-area {
                 padding: 0.75rem;
                 gap: 0.5rem;
+            }
+
+            .format-toolbar {
+                gap: 0.2rem;
+                padding: 0.375rem;
+            }
+
+            .format-btn {
+                min-width: 28px;
+                height: 28px;
+                padding: 0.25rem 0.5rem;
+                font-size: 0.8125rem;
             }
 
             .message-input {
@@ -471,6 +602,13 @@
             opacity: 0.7;
         }
 
+        .file-buttons {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-left: auto;
+        }
+
         .file-download-btn {
             background: none;
             border: none;
@@ -480,6 +618,7 @@
             border-radius: 4px;
             font-size: 0.875rem;
             transition: all 0.2s ease;
+            white-space: nowrap;
         }
 
         .file-download-btn:hover {
@@ -593,7 +732,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             padding: 1.5rem;
-            background: rgba(11, 25, 44, 0.9);
+            background: rgba(0, 0, 0, 0.9);
             backdrop-filter: blur(12px);
             border-radius: 16px;
             border: 1px solid rgba(255, 101, 0, 0.15);
@@ -664,9 +803,54 @@
         .hidden {
             display: none !important;
         }
+
+        .drag-over {
+            border: 2px dashed #FF6500 !important;
+            background: rgba(255, 101, 0, 0.1) !important;
+        }
+
+        .drag-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 101, 0, 0.1);
+            border: 3px dashed #FF6500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+        }
+
+        .drag-overlay.show {
+            display: flex;
+        }
+
+        .drag-overlay-content {
+            text-align: center;
+            color: #FF6500;
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .drag-overlay-content span {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 1rem;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
+    <div class="drag-overlay" id="dragOverlay">
+        <div class="drag-overlay-content">
+            📎 Drop file to upload
+            <span>Release to start transfer</span>
+        </div>
+    </div>
     <div class="overlay" id="overlay"></div>
     <div class="download-dialog" id="downloadDialog">
         <h3>Download File</h3>
@@ -702,14 +886,42 @@
             <div class="empty-chat">No messages yet. Start sharing!</div>
         </div>
         <div class="input-area">
-            <input type="text" class="message-input" id="messageInput" placeholder="Type your message...">
-            <input type="file" id="fileInput" class="file-upload">
-            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                📎 <span>Upload</span>
-            </button>
-            <button class="send-btn" onclick="sendMessage()">
-                ➤ <span>Send</span>
-            </button>
+            <div class="format-toolbar" id="formatToolbar">
+                <button class="format-btn" onclick="formatText('bold')" title="Bold (Ctrl+B)">
+                    <strong>B</strong>
+                </button>
+                <button class="format-btn" onclick="formatText('italic')" title="Italic (Ctrl+I)">
+                    <em>I</em>
+                </button>
+                <button class="format-btn" onclick="formatText('strikethrough')" title="Strikethrough">
+                    <s>S</s>
+                </button>
+                <button class="format-btn" onclick="formatText('code')" title="Inline Code">
+                    <code>&lt;/&gt;</code>
+                </button>
+                <button class="format-btn" onclick="formatText('codeBlock')" title="Code Block">
+                    <code>```</code>
+                </button>
+                <button class="format-btn" onclick="formatText('quote')" title="Quote">
+                    "
+                </button>
+                <button class="format-btn" onclick="formatText('bulletList')" title="Bullet List">
+                    •
+                </button>
+                <button class="format-btn" onclick="formatText('numberedList')" title="Numbered List">
+                    1.
+                </button>
+            </div>
+            <div class="input-wrapper">
+                <div class="message-input" contenteditable="true" id="messageInput" placeholder="Type your message..." role="textbox" aria-multiline="true"></div>
+                <input type="file" id="fileInput" class="file-upload">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    📎 <span>Upload</span>
+                </button>
+                <button class="send-btn" onclick="sendMessage()">
+                    ➤ <span>Send</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -725,6 +937,295 @@
         const emptyChat = document.querySelector('.empty-chat');
         const peerIdElement = document.getElementById('peerId');
         const peerIdInput = document.getElementById('peerIdInput');
+
+        // Text formatting functions
+        function formatText(command) {
+            document.execCommand(command, false, null);
+            messageInput.focus();
+        }
+
+        // Get text content from contenteditable div
+        function getMessageText() {
+            return messageInput.innerText || messageInput.textContent || '';
+        }
+
+        // Get HTML content with formatting
+        function getMessageHTML() {
+            return messageInput.innerHTML || '';
+        }
+
+        // Parse markdown-style formatting and convert to HTML
+        function parseMarkdown(text) {
+            if (!text) return '';
+            
+            let html = text;
+            
+            // First, extract code blocks and replace with placeholders to preserve them
+            const codeBlocks = [];
+            let codeBlockIndex = 0;
+            html = html.replace(/```([\s\S]*?)```/g, (match, codeContent) => {
+                // Escape HTML inside code blocks but preserve line breaks and formatting
+                const escapedCode = codeContent
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                const placeholder = `__CODE_BLOCK_${codeBlockIndex}__`;
+                codeBlocks.push(`<pre><code>${escapedCode}</code></pre>`);
+                codeBlockIndex++;
+                return placeholder;
+            });
+            
+            // Escape HTML for the rest of the content
+            html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Blockquote (> text) - must be done before other formatting
+            html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+            
+            // Process lines for lists
+            const lines = html.split('\n');
+            let result = [];
+            let inBulletList = false;
+            let inNumberedList = false;
+            let bulletListItems = [];
+            let numberedListItems = [];
+            
+            for (let line of lines) {
+                // Skip processing if this line contains a code block placeholder
+                if (line.includes('__CODE_BLOCK_')) {
+                    // Close any open lists before code block
+                    if (inBulletList) {
+                        result.push('<ul>' + bulletListItems.join('') + '</ul>');
+                        bulletListItems = [];
+                        inBulletList = false;
+                    }
+                    if (inNumberedList) {
+                        result.push('<ol>' + numberedListItems.join('') + '</ol>');
+                        numberedListItems = [];
+                        inNumberedList = false;
+                    }
+                    result.push(line);
+                    continue;
+                }
+                
+                // Check for numbered list
+                const numberedMatch = line.match(/^(\d+)\. (.+)$/);
+                if (numberedMatch) {
+                    if (inBulletList) {
+                        result.push('<ul>' + bulletListItems.join('') + '</ul>');
+                        bulletListItems = [];
+                        inBulletList = false;
+                    }
+                    if (!inNumberedList) {
+                        inNumberedList = true;
+                        numberedListItems = [];
+                    }
+                    numberedListItems.push('<li>' + numberedMatch[2] + '</li>');
+                    continue;
+                }
+                
+                // Check for bullet list
+                const bulletMatch = line.match(/^[-*] (.+)$/);
+                if (bulletMatch) {
+                    if (inNumberedList) {
+                        result.push('<ol>' + numberedListItems.join('') + '</ol>');
+                        numberedListItems = [];
+                        inNumberedList = false;
+                    }
+                    if (!inBulletList) {
+                        inBulletList = true;
+                        bulletListItems = [];
+                    }
+                    bulletListItems.push('<li>' + bulletMatch[1] + '</li>');
+                    continue;
+                }
+                
+                // Close any open lists
+                if (inBulletList) {
+                    result.push('<ul>' + bulletListItems.join('') + '</ul>');
+                    bulletListItems = [];
+                    inBulletList = false;
+                }
+                if (inNumberedList) {
+                    result.push('<ol>' + numberedListItems.join('') + '</ol>');
+                    numberedListItems = [];
+                    inNumberedList = false;
+                }
+                
+                // Regular line
+                result.push(line);
+            }
+            
+            // Close any remaining lists
+            if (inBulletList) {
+                result.push('<ul>' + bulletListItems.join('') + '</ul>');
+            }
+            if (inNumberedList) {
+                result.push('<ol>' + numberedListItems.join('') + '</ol>');
+            }
+            
+            html = result.join('\n');
+            
+            // Inline code (`code`) - must be done after code blocks
+            html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+            
+            // Bold (**text** or __text__)
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+            
+            // Italic (*text* or _text_) - must be done after bold
+            // Since bold is already processed, remaining single * or _ are italic
+            html = html.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
+            html = html.replace(/_([^_\n]+?)_/g, '<em>$1</em>');
+            
+            // Strikethrough (~~text~~)
+            html = html.replace(/~~(.+?)~~/g, '<s>$1</s>');
+            
+            // Replace code block placeholders with actual code blocks
+            codeBlocks.forEach((codeBlock, index) => {
+                html = html.replace(`__CODE_BLOCK_${index}__`, codeBlock);
+            });
+            
+            // Convert line breaks to <br> for regular text (preserve code blocks)
+            // Since code blocks are already replaced, we need to protect them
+            // Split by code blocks, process text parts, then rejoin
+            const codeBlockRegex = /<pre><code>[\s\S]*?<\/code><\/pre>/g;
+            const codeBlockParts = [];
+            let blockIndex = 0;
+            html = html.replace(codeBlockRegex, (match) => {
+                const placeholder = `__PROTECTED_CODE_${blockIndex}__`;
+                codeBlockParts.push(match);
+                blockIndex++;
+                return placeholder;
+            });
+            
+            // Now convert \n to <br> in the remaining text
+            html = html.replace(/\n/g, (match, offset, string) => {
+                // Don't convert if it's part of blockquote, list, etc.
+                const before = string.substring(Math.max(0, offset - 50), offset);
+                const after = string.substring(offset, Math.min(string.length, offset + 50));
+                if (before.includes('<blockquote>') || after.includes('</blockquote>') ||
+                    before.includes('<ul>') || after.includes('</ul>') ||
+                    before.includes('<ol>') || after.includes('</ol>') ||
+                    before.includes('<li>')) {
+                    return match;
+                }
+                return '<br>';
+            });
+            
+            // Restore code blocks
+            codeBlockParts.forEach((codeBlock, index) => {
+                html = html.replace(`__PROTECTED_CODE_${index}__`, codeBlock);
+            });
+            
+            return html;
+        }
+
+        // Format text using markdown-style syntax
+        function insertMarkdownFormatting(markdown) {
+            // Ensure messageInput has focus
+            if (document.activeElement !== messageInput) {
+                messageInput.focus();
+            }
+            
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) {
+                // If no selection, create a range at the end of the input
+                const range = document.createRange();
+                range.selectNodeContents(messageInput);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            
+            const range = selection.getRangeAt(0);
+            const selectedText = range.toString();
+            
+            if (selectedText) {
+                // Wrap selected text
+                let formattedText = '';
+                switch(markdown) {
+                    case 'bold':
+                        formattedText = `**${selectedText}**`;
+                        break;
+                    case 'italic':
+                        formattedText = `*${selectedText}*`;
+                        break;
+                    case 'code':
+                        formattedText = `\`${selectedText}\``;
+                        break;
+                    case 'strikethrough':
+                        formattedText = `~~${selectedText}~~`;
+                        break;
+                    default:
+                        formattedText = selectedText;
+                }
+                
+                range.deleteContents();
+                const textNode = document.createTextNode(formattedText);
+                range.insertNode(textNode);
+                
+                // Position cursor after the formatting
+                range.setStartAfter(textNode);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } else {
+                // Insert markdown syntax at cursor
+                let textToInsert = '';
+                switch(markdown) {
+                    case 'bold':
+                        textToInsert = '****';
+                        break;
+                    case 'italic':
+                        textToInsert = '**';
+                        break;
+                    case 'code':
+                        textToInsert = '``';
+                        break;
+                    case 'strikethrough':
+                        textToInsert = '~~~~';
+                        break;
+                    case 'codeBlock':
+                        textToInsert = '```\n\n```';
+                        break;
+                    case 'quote':
+                        textToInsert = '> ';
+                        break;
+                    case 'bulletList':
+                        textToInsert = '- ';
+                        break;
+                    case 'numberedList':
+                        textToInsert = '1. ';
+                        break;
+                }
+                
+                const textNode = document.createTextNode(textToInsert);
+                range.insertNode(textNode);
+                
+                // Position cursor appropriately
+                if (markdown === 'bold' || markdown === 'code' || markdown === 'strikethrough') {
+                    range.setStart(textNode, textToInsert.length / 2);
+                    range.setEnd(textNode, textToInsert.length / 2);
+                } else if (markdown === 'codeBlock') {
+                    range.setStart(textNode, 4);
+                    range.setEnd(textNode, 4);
+                } else {
+                    range.setStart(textNode, textToInsert.length);
+                    range.setEnd(textNode, textToInsert.length);
+                }
+                
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            
+            messageInput.focus();
+        }
+
+        // Update formatText function to use markdown-style formatting
+        window.formatText = function(command) {
+            // Use markdown-style formatting instead of execCommand
+            insertMarkdownFormatting(command);
+        };
 
         // Optimized file transfer configuration
         const MIN_CHUNK_SIZE = 262144; // 256KB minimum
@@ -915,7 +1416,8 @@
 
                 // Process the message
                 if (data.type === 'text') {
-                    addMessageToChat(data.content, 'text', 'received');
+                    const formattedContent = data.formatted || parseMarkdown(data.content);
+                    addMessageToChat(formattedContent, 'text', 'received');
                 } else if (data.type === 'file-meta' || data.type === 'file-chunk') {
                     handleReceivedFile(data);
                 }
@@ -944,16 +1446,19 @@
 
         // Send text message
         function sendMessage() {
-            const message = messageInput.value.trim();
-            if (!message) return;
+            const messageText = getMessageText().trim();
+            if (!messageText) return;
 
             if (conn && conn.open) {
+                // Send both plain text and formatted HTML
+                const messageHTML = parseMarkdown(messageText);
                 conn.send({
                     type: 'text',
-                    content: message
+                    content: messageText,
+                    formatted: messageHTML
                 });
-                addMessageToChat(message, 'text', 'sent');
-                messageInput.value = '';
+                addMessageToChat(messageHTML, 'text', 'sent');
+                messageInput.innerHTML = '';
                 hideEmptyChat();
             } else {
                 addSystemMessage('Not connected to a peer');
@@ -1291,7 +1796,7 @@
             return mimeTypes[extension] || mimeTypes.default;
         }
 
-        // Modified addMessageToChat for media preview
+        // Modified addMessageToChat for media preview and formatted text
         function addMessageToChat(content, type, direction = 'sent') {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${type} ${direction}`;
@@ -1318,7 +1823,11 @@
                     messageDiv.appendChild(previewContainer);
                 }
             } else {
-                messageDiv.textContent = content;
+                // Render formatted HTML content
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-text-content';
+                contentDiv.innerHTML = content;
+                messageDiv.appendChild(contentDiv);
             }
             
             chatArea.appendChild(messageDiv);
@@ -1366,14 +1875,49 @@
             progressBar.style.width = `${percent}%`;
         }
 
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        // Handle Enter key and keyboard shortcuts
+        messageInput.addEventListener('keydown', (e) => {
+            // Ctrl+B for bold
+            if (e.ctrlKey && e.key === 'b') {
+                e.preventDefault();
+                formatText('bold');
+                return;
+            }
+            // Ctrl+I for italic
+            if (e.ctrlKey && e.key === 'i') {
+                e.preventDefault();
+                formatText('italic');
+                return;
+            }
+            // Enter to send (Shift+Enter for new line)
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendMessage();
             }
         });
 
         // Initialize PeerJS when the page loads
         initializePeer();
+
+        // Function to view file (opens in new tab for viewable files)
+        function viewFile(url, fileName, fileType) {
+            if (['image', 'video', 'pdf'].includes(fileType)) {
+                window.open(url, '_blank');
+            } else {
+                // For non-viewable files, trigger download
+                downloadFile(url, fileName);
+            }
+        }
+
+        // Function to download file
+        function downloadFile(url, fileName) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
 
         function showDownloadDialog(url, fileName, fileType) {
             const dialog = document.getElementById('downloadDialog');
@@ -1394,10 +1938,7 @@
             confirmBtn.onclick = () => {
                 hideDownloadDialog();
                 // Trigger download for non-viewable files
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                a.click();
+                downloadFile(url, fileName);
             };
         }
 
@@ -1452,27 +1993,39 @@
 
                 // Make the entire message clickable for opening/downloading
                 receiver.messageDiv.onclick = (e) => {
-                    // Prevent click when clicking on video controls
-                    if (e.target.tagName === 'VIDEO') return;
-                    showDownloadDialog(url, receiver.name, fileType);
+                    // Prevent click when clicking on video controls or buttons
+                    if (e.target.tagName === 'VIDEO' || e.target.tagName === 'BUTTON') return;
+                    viewFile(url, receiver.name, fileType);
                 };
 
-                // Update button text and behavior based on file type
-                const downloadBtn = document.createElement('button');
-                downloadBtn.className = 'file-download-btn';
+                // Create buttons container
+                const buttonsContainer = document.createElement('div');
+                buttonsContainer.className = 'file-buttons';
+
+                // Create View button (for viewable files) or Download button (for others)
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'file-download-btn';
                 
                 if (['image', 'video', 'pdf'].includes(fileType)) {
-                    downloadBtn.innerHTML = '👁️ View';
-                } else {
-                    downloadBtn.innerHTML = '⬇️ Download';
+                    viewBtn.innerHTML = '👁️ View';
+                    viewBtn.onclick = (e) => {
+                        e.stopPropagation(); // Prevent triggering the message click
+                        viewFile(url, receiver.name, fileType);
+                    };
+                    buttonsContainer.appendChild(viewBtn);
                 }
 
+                // Always create Download button for all files
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'file-download-btn';
+                downloadBtn.innerHTML = '⬇️ Download';
                 downloadBtn.onclick = (e) => {
                     e.stopPropagation(); // Prevent triggering the message click
-                    showDownloadDialog(url, receiver.name, fileType);
+                    downloadFile(url, receiver.name);
                 };
+                buttonsContainer.appendChild(downloadBtn);
 
-                receiver.messageDiv.querySelector('.file-info').appendChild(downloadBtn);
+                receiver.messageDiv.querySelector('.file-info').appendChild(buttonsContainer);
                 updateProgress(receiver.progressBar, 100);
                 console.log('File ready:', receiver.name);
                 
@@ -1506,7 +2059,6 @@
                 if (html5QrcodeScanner.clear) {
                     html5QrcodeScanner.clear().catch(err => console.log('Scanner clear error:', err));
                 } else if (html5QrcodeScanner.stop) {
-                    html5QrcodeScanner.stop().catch(err => console.log('Scanner stop error:', err));
                 }
             }
             // Reset reader view
@@ -1604,13 +2156,12 @@
 
         // Enhanced paste event handler for files and text
         document.addEventListener('paste', async (e) => {
-            e.preventDefault(); // Prevent default paste behavior
-
             // Check if we're pasting into the message input
-            const isMessageInput = e.target === messageInput;
+            const isMessageInput = e.target === messageInput || messageInput.contains(e.target);
 
             // Handle files from clipboard (when user copies actual files, not paths)
             if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                e.preventDefault(); // Prevent default paste behavior
                 const file = e.clipboardData.files[0];
                 
                 if (!conn || !conn.open) {
@@ -1633,15 +2184,135 @@
                 fileInput.dispatchEvent(event);
                 
             } else if (isMessageInput && e.clipboardData) {
-                // Handle text paste in message input
-                const text = e.clipboardData.getData('text');
+                // Handle text paste manually to preserve newlines
+                e.preventDefault();
                 
-                // Insert the text at cursor position
-                const start = messageInput.selectionStart;
-                const end = messageInput.selectionEnd;
-                const currentValue = messageInput.value;
-                messageInput.value = currentValue.substring(0, start) + text + currentValue.substring(end);
-                messageInput.selectionStart = messageInput.selectionEnd = start + text.length;
+                // Ensure messageInput has focus
+                if (document.activeElement !== messageInput && !messageInput.contains(document.activeElement)) {
+                    messageInput.focus();
+                }
+                
+                const selection = window.getSelection();
+                if (selection.rangeCount === 0) {
+                    // Create a range at the end if no selection
+                    const range = document.createRange();
+                    range.selectNodeContents(messageInput);
+                    range.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+                
+                const range = selection.getRangeAt(0);
+                const text = e.clipboardData.getData('text/plain');
+                
+                if (text) {
+                    // Delete selected content if any
+                    range.deleteContents();
+                    
+                    // Split text by newlines and create text nodes for each line
+                    // This preserves newlines in contenteditable
+                    const lines = text.split('\n');
+                    const fragment = document.createDocumentFragment();
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        const textNode = document.createTextNode(lines[i]);
+                        fragment.appendChild(textNode);
+                        
+                        // Add line break after each line except the last
+                        if (i < lines.length - 1) {
+                            const br = document.createElement('br');
+                            fragment.appendChild(br);
+                        }
+                    }
+                    
+                    // Get the last node before insertion (fragment becomes empty after insertion)
+                    const lastNode = fragment.lastChild;
+                    
+                    // Insert all nodes at once
+                    range.insertNode(fragment);
+                    
+                    // Position cursor after the pasted content
+                    if (lastNode) {
+                        range.setStartAfter(lastNode);
+                        range.collapse(true);
+                    } else {
+                        range.collapse(false);
+                    }
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        });
+
+        // Drag and drop file upload functionality
+        const dragOverlay = document.getElementById('dragOverlay');
+        let dragCounter = 0;
+
+        // Prevent default drag behaviors on the entire document
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Handle drag enter
+        document.addEventListener('dragenter', (e) => {
+            // Only show drag overlay if dragging files
+            if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+                dragCounter++;
+                dragOverlay.classList.add('show');
+            }
+        });
+
+        // Handle drag leave
+        document.addEventListener('dragleave', (e) => {
+            dragCounter--;
+            if (dragCounter === 0) {
+                dragOverlay.classList.remove('show');
+            }
+        });
+
+        // Handle drop
+        document.addEventListener('drop', async (e) => {
+            dragCounter = 0;
+            dragOverlay.classList.remove('show');
+
+            // Check if we have files and a connection
+            if (!conn || !conn.open) {
+                addSystemMessage('❌ Connect to a peer before sharing files');
+                return;
+            }
+
+            const files = e.dataTransfer.files;
+            if (files.length === 0) {
+                return;
+            }
+
+            // Handle multiple files - process them one by one
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                if (!isFileSizeManageable(file.size)) {
+                    continue;
+                }
+
+                addSystemMessage(`📎 Processing dropped file: ${file.name}`);
+                
+                // Create a new FileList and trigger file upload
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+
+                // Small delay between multiple files to avoid overwhelming the connection
+                if (i < files.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
             }
         });
     </script>
