@@ -1,0 +1,3052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Share</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background: #28282B;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #e0e0e0;
+            padding: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 100%;
+            height: 100dvh;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            gap: 0.75rem;
+            padding: 0.75rem;
+        }
+
+        .header {
+            padding: 1rem;
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header h1 {
+            color: #FF6500;
+            font-size: 1.5rem;
+            font-weight: 500;
+            letter-spacing: -0.3px;
+        }
+
+        .chat-area {
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            position: relative;
+        }
+
+        .chat-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-area::-webkit-scrollbar-thumb {
+            background: rgba(255, 101, 0, 0.3);
+            border-radius: 20px;
+        }
+
+        .chat-area::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 101, 0, 0.5);
+        }
+
+        .input-area {
+            padding: 0.875rem;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            backdrop-filter: blur(8px);
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .format-toolbar {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.5rem;
+            background: rgba(11, 25, 44, 0.2);
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        .format-btn {
+            background: transparent;
+            border: 1px solid rgba(30, 62, 98, 0.3);
+            color: #e0e0e0;
+            padding: 0.375rem 0.625rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+        }
+
+        .format-btn:hover {
+            background: rgba(255, 101, 0, 0.1);
+            border-color: rgba(255, 101, 0, 0.3);
+        }
+
+        .format-btn.active {
+            background: rgba(255, 101, 0, 0.2);
+            border-color: #FF6500;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid rgba(30, 62, 98, 0.25);
+            border-radius: 10px;
+            outline: none;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            background: rgba(11, 25, 44, 0.15);
+            color: #e0e0e0;
+            min-height: 44px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message-input:focus {
+            border-color: #FF6500;
+            box-shadow: 0 0 0 2px rgba(255, 101, 0, 0.1);
+        }
+
+        .message-input[contenteditable="true"]:empty:before {
+            content: attr(placeholder);
+            color: rgba(224, 224, 224, 0.4);
+            pointer-events: none;
+        }
+
+        .message-input::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .message-input::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .message-input::-webkit-scrollbar-thumb {
+            background: rgba(255, 101, 0, 0.3);
+            border-radius: 2px;
+        }
+
+        .file-upload {
+            display: none;
+        }
+
+        .upload-btn, .send-btn {
+            background: #FF6500;
+            color: white;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            min-width: 40px;
+            justify-content: center;
+        }
+
+        .upload-btn:hover, .send-btn:hover {
+            background: #ff7518;
+            transform: translateY(-1px);
+        }
+
+        .upload-btn:active, .send-btn:active {
+            transform: translateY(0);
+        }
+
+        .message {
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            max-width: 70%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            animation: fadeIn 0.2s ease;
+            position: relative;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.text {
+            background: rgba(30, 62, 98, 0.3);
+            align-self: flex-start;
+            margin: 0.25rem 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .message-text-content {
+            line-height: 1.5;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .message-text-content strong {
+            font-weight: 600;
+        }
+
+        .message-text-content em {
+            font-style: italic;
+        }
+
+        .message-text-content s {
+            text-decoration: line-through;
+        }
+
+        .message-text-content code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.125rem 0.375rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85em;
+            color: #FF6500;
+        }
+
+        .message-text-content pre {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 0.75rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            margin: 0.5rem 0;
+            border-left: 3px solid #FF6500;
+            max-width: 100%;
+            width: 100%;
+            box-sizing: border-box;
+            white-space: pre;
+            position: relative;
+            display: block;
+            z-index: 1;
+        }
+
+        .message-text-content pre code {
+            background: none;
+            padding: 0;
+            border-radius: 0;
+            color: inherit;
+            font-size: 0.875em;
+            white-space: pre;
+            display: block;
+        }
+
+        .message-text-content blockquote {
+            border-left: 3px solid rgba(255, 101, 0, 0.5);
+            padding-left: 0.75rem;
+            margin: 0.5rem 0;
+            color: rgba(224, 224, 224, 0.8);
+            font-style: italic;
+        }
+
+        .message-text-content ul, .message-text-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .message-text-content li {
+            margin: 0.25rem 0;
+        }
+
+        .message.file {
+            background: rgba(11, 25, 44, 0.4);
+            align-self: flex-start;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 0.25rem 0;
+        }
+
+        .empty-chat {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: rgba(224, 224, 224, 0.3);
+            font-size: 0.9375rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.5rem;
+                gap: 0.5rem;
+                height: 100dvh;
+            }
+
+            .header {
+                padding: 0.75rem;
+            }
+
+            .header h1 {
+                font-size: 1.25rem;
+            }
+
+            .input-area {
+                padding: 0.75rem;
+                gap: 0.5rem;
+            }
+
+            .format-toolbar {
+                gap: 0.2rem;
+                padding: 0.375rem;
+            }
+
+            .format-btn {
+                min-width: 28px;
+                height: 28px;
+                padding: 0.25rem 0.5rem;
+                font-size: 0.8125rem;
+            }
+
+            .message-input {
+                padding: 0.625rem 0.875rem;
+                font-size: 0.875rem;
+            }
+
+            .upload-btn, .send-btn {
+                padding: 0.625rem;
+                font-size: 0.875rem;
+                min-width: 36px;
+            }
+
+            .message {
+                max-width: 85%;
+                padding: 0.625rem 0.875rem;
+                font-size: 0.85rem;
+            }
+
+            .connection-status {
+                font-size: 0.8rem;
+            }
+
+            #peerIdInput {
+                font-size: 0.875rem;
+                padding: 0.625rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0.5rem;
+                gap: 0.5rem;
+            }
+
+            .header {
+                padding: 0.875rem;
+            }
+
+            .header h1 {
+                font-size: 1.125rem;
+            }
+
+            .message {
+                max-width: 90%;
+                font-size: 0.875rem;
+                padding: 0.625rem 0.75rem;
+            }
+
+            .input-area {
+                padding: 0.625rem;
+            }
+
+            .message-input {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.9375rem;
+            }
+
+            .upload-btn, .send-btn {
+                padding: 0.5rem;
+                font-size: 0.9375rem;
+                min-width: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .upload-btn span {
+                display: none;
+            }
+
+            .send-btn span {
+                display: none;
+            }
+
+            .connection-status {
+                font-size: 0.8125rem;
+            }
+
+            #peerIdInput {
+                font-size: 0.875rem;
+                padding: 0.5rem;
+            }
+
+            .empty-chat {
+                font-size: 0.875rem;
+            }
+
+            .file-size {
+                font-size: 0.6875rem;
+            }
+
+            .timestamp {
+                font-size: 0.6875rem;
+            }
+
+            .file-download-btn {
+                font-size: 0.8125rem;
+                padding: 0.375rem 0.625rem;
+            }
+
+            .qr-panel {
+                padding: 1.25rem;
+                gap: 1.25rem;
+                max-width: 95vw;
+            }
+
+            .qr-code-container {
+                padding: 0.5rem;
+            }
+
+            #reader {
+                width: 250px;
+                height: 250px;
+            }
+
+            .qr-btn {
+                padding: 0.625rem 0.875rem;
+                font-size: 0.8rem;
+            }
+
+            .download-dialog {
+                min-width: 280px;
+                padding: 1rem;
+            }
+
+            .download-dialog h3 {
+                font-size: 1rem;
+            }
+
+            .download-dialog p {
+                font-size: 0.875rem;
+            }
+
+            .dialog-button {
+                font-size: 0.875rem;
+                padding: 0.5rem 1rem;
+            }
+        }
+
+        /* Add support for taller phones */
+        @media (min-height: 800px) and (max-width: 480px) {
+            .container {
+                gap: 0.75rem;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .input-area {
+                padding: 0.75rem;
+            }
+
+            .message-input, .upload-btn, .send-btn {
+                padding: 0.75rem;
+            }
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .connection-controls {
+            display: flex;
+            gap: 0.375rem;
+            align-items: center;
+        }
+
+        #peerIdInput {
+            width: 180px;
+            font-size: 0.8rem;
+        }
+
+        #peerId {
+            color: #FF6500;
+            font-weight: 500;
+        }
+
+        .message.system {
+            background: rgba(255, 101, 0, 0.08);
+            color: rgba(224, 224, 224, 0.65);
+            align-self: center;
+            font-size: 0.8rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 8px;
+            max-width: 85%;
+            text-align: center;
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background: rgba(255, 101, 0, 0.2);
+        }
+
+        .message.received {
+            align-self: flex-start;
+            background: rgba(30, 62, 98, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .connection-status {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .connection-controls {
+                flex-wrap: wrap;
+            }
+
+            #peerIdInput {
+                width: 100%;
+            }
+        }
+
+        .file-progress {
+            position: relative;
+            width: 100%;
+            height: 4px;
+            background: rgba(30, 62, 98, 0.3);
+            border-radius: 2px;
+            margin-top: 8px;
+        }
+
+        .file-progress-bar {
+            position: absolute;
+            height: 100%;
+            background: #FF6500;
+            border-radius: 2px;
+            transition: width 0.2s ease;
+        }
+
+        .file-message {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .file-message:hover {
+            background-color: rgba(255, 101, 0, 0.1);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .file-icon {
+            font-size: 1.25rem;
+            color: #FF6500;
+            flex-shrink: 0;
+        }
+
+        .file-name-container {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #e0e0e0;
+            font-size: 0.875rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-size {
+            font-size: 0.75rem;
+            opacity: 0.6;
+            color: rgba(224, 224, 224, 0.6);
+        }
+
+        .file-buttons {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .file-download-btn {
+            background: rgba(255, 101, 0, 0.1);
+            border: 1px solid rgba(255, 101, 0, 0.2);
+            color: #FF6500;
+            cursor: pointer;
+            padding: 0.5rem 0.875rem;
+            border-radius: 8px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            min-width: auto;
+        }
+
+        .file-download-btn:hover {
+            background: rgba(255, 101, 0, 0.2);
+            border-color: rgba(255, 101, 0, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .file-download-btn:active {
+            transform: translateY(0);
+        }
+
+        .file-download-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            flex-shrink: 0;
+        }
+
+        .file-download-btn span {
+            line-height: 1;
+        }
+
+        .timestamp {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-right: 8px;
+        }
+
+        .media-preview {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .media-preview img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+
+        .media-preview video {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+
+        .message.file.with-preview {
+            max-width: 320px;
+        }
+
+        .download-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(11, 25, 44, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 101, 0, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 300px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .download-dialog.show {
+            display: flex;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .dialog-button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s ease;
+        }
+
+        .dialog-button.primary {
+            background: #FF6500;
+            color: white;
+        }
+
+        .dialog-button.secondary {
+            background: rgba(30, 62, 98, 0.3);
+            color: #e0e0e0;
+        }
+
+        .dialog-button:hover {
+            transform: translateY(-1px);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(3px);
+            z-index: 999;
+            display: none;
+        }
+
+        .overlay.show {
+            display: block;
+        }
+
+        .qr-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 101, 0, 0.15);
+            text-align: center;
+            z-index: 1000;
+            max-width: 90vw;
+        }
+
+        .qr-close-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            color: #e0e0e0;
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0.375rem;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .qr-close-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .qr-code-container {
+            padding: 0.75rem;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .qr-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .qr-btn {
+            background: #FF6500;
+            color: white;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .qr-btn:hover {
+            background: #ff7518;
+            transform: translateY(-0.5px);
+        }
+
+        #reader {
+            width: 280px;
+            height: 280px;
+            background: black;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .drag-over {
+            border: 2px dashed #FF6500 !important;
+            background: rgba(255, 101, 0, 0.1) !important;
+        }
+
+        .drag-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 101, 0, 0.1);
+            border: 3px dashed #FF6500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+        }
+
+        .drag-overlay.show {
+            display: flex;
+        }
+
+        .drag-overlay-content {
+            text-align: center;
+            color: #FF6500;
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .drag-overlay-content span {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="drag-overlay" id="dragOverlay">
+        <div class="drag-overlay-content">
+            📎 Drop file to upload
+            <span>Release to start transfer</span>
+        </div>
+    </div>
+    <div class="overlay" id="overlay"></div>
+    <div class="download-dialog" id="downloadDialog">
+        <h3>Download File</h3>
+        <p>Do you want to download this file?</p>
+        <div class="dialog-buttons">
+            <button class="dialog-button secondary" onclick="hideDownloadDialog()">Cancel</button>
+            <button class="dialog-button primary" id="confirmDownload">Yes, Download</button>
+        </div>
+    </div>
+    <div id="qrPanel" class="qr-panel hidden">
+        <button class="qr-close-btn" onclick="hideQRPanel()">✕</button>
+        <h2 style="font-size: 1.25rem; margin: 0; font-weight: 500;">Connect with Peer</h2>
+        <p id="qrPeerId" style="color: #FF6500; font-weight: 500; margin: 0 0 0.75rem 0; font-size: 0.9rem;">Your ID: </p>
+        <div id="qrcode" class="qr-code-container"></div>
+        <div class="qr-buttons">
+            <button class="qr-btn" id="scanButton">Scan QR Code</button>
+            <button class="qr-btn" id="manualButton">Enter ID Manually</button>
+        </div>
+        <div id="reader" class="hidden"></div>
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>WebRTC Share</h1>
+            <div class="connection-status">
+                <span id="peerId"></span>
+                <div class="connection-controls">
+                    <input type="text" id="peerIdInput" placeholder="Enter peer ID to connect..." class="message-input">
+                    <button class="send-btn" onclick="connectToPeer()">Connect</button>
+                </div>
+            </div>
+        </div>
+        <div class="chat-area" id="chatArea">
+            <div class="empty-chat">No messages yet. Start sharing!</div>
+        </div>
+        <div class="input-area">
+            <div class="format-toolbar" id="formatToolbar">
+                <button class="format-btn" onclick="formatText('bold')" title="Bold (Ctrl+B)">
+                    <strong>B</strong>
+                </button>
+                <button class="format-btn" onclick="formatText('italic')" title="Italic (Ctrl+I)">
+                    <em>I</em>
+                </button>
+                <button class="format-btn" onclick="formatText('strikethrough')" title="Strikethrough">
+                    <s>S</s>
+                </button>
+                <button class="format-btn" onclick="formatText('code')" title="Inline Code">
+                    <code>&lt;/&gt;</code>
+                </button>
+                <button class="format-btn" onclick="formatText('codeBlock')" title="Code Block">
+                    <code>```</code>
+                </button>
+                <button class="format-btn" onclick="formatText('quote')" title="Quote">
+                    "
+                </button>
+                <button class="format-btn" onclick="formatText('bulletList')" title="Bullet List">
+                    •
+                </button>
+                <button class="format-btn" onclick="formatText('numberedList')" title="Numbered List">
+                    1.
+                </button>
+            </div>
+            <div class="input-wrapper">
+                <div class="message-input" contenteditable="true" id="messageInput" placeholder="Type your message..." role="textbox" aria-multiline="true"></div>
+                <input type="file" id="fileInput" class="file-upload">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    📎 <span>Upload</span>
+                </button>
+                <button class="send-btn" onclick="sendMessage()">
+                    ➤ <span>Send</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+        let peerId = null;
+        let ws = null;
+        let peerConnection = null;
+        let dataChannel = null;
+        let isInitiator = false;
+        let remotePeerId = null;
+        let iceCandidateQueue = []; // Queue for ICE candidates received before remote description is set
+        const chatArea = document.getElementById('chatArea');
+        const messageInput = document.getElementById('messageInput');
+        const fileInput = document.getElementById('fileInput');
+        const emptyChat = document.querySelector('.empty-chat');
+        const peerIdElement = document.getElementById('peerId');
+        const peerIdInput = document.getElementById('peerIdInput');
+
+        // Text formatting functions
+        function formatText(command) {
+            document.execCommand(command, false, null);
+            messageInput.focus();
+        }
+
+        // Get text content from contenteditable div
+        function getMessageText() {
+            return messageInput.innerText || messageInput.textContent || '';
+        }
+
+        // Get HTML content with formatting
+        function getMessageHTML() {
+            return messageInput.innerHTML || '';
+        }
+
+        // Parse markdown-style formatting and convert to HTML
+        function parseMarkdown(text) {
+            if (!text) return '';
+            
+            let html = text;
+            
+            // First, extract code blocks and replace with placeholders to preserve them
+            const codeBlocks = [];
+            let codeBlockIndex = 0;
+            html = html.replace(/```([\s\S]*?)```/g, (match, codeContent) => {
+                // Escape HTML inside code blocks but preserve line breaks and formatting
+                const escapedCode = codeContent
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                const placeholder = `__CODE_BLOCK_${codeBlockIndex}__`;
+                codeBlocks.push(`<pre><code>${escapedCode}</code></pre>`);
+                codeBlockIndex++;
+                return placeholder;
+            });
+            
+            // Escape HTML for the rest of the content
+            html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Blockquote (> text) - must be done before other formatting
+            html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+            
+            // Process lines for lists
+            const lines = html.split('\n');
+            let result = [];
+            let inBulletList = false;
+            let inNumberedList = false;
+            let bulletListItems = [];
+            let numberedListItems = [];
+            
+            for (let line of lines) {
+                // Skip processing if this line contains a code block placeholder
+                if (line.includes('__CODE_BLOCK_')) {
+                    // Close any open lists before code block
+                    if (inBulletList) {
+                        result.push('<ul>' + bulletListItems.join('') + '</ul>');
+                        bulletListItems = [];
+                        inBulletList = false;
+                    }
+                    if (inNumberedList) {
+                        result.push('<ol>' + numberedListItems.join('') + '</ol>');
+                        numberedListItems = [];
+                        inNumberedList = false;
+                    }
+                    result.push(line);
+                    continue;
+                }
+                
+                // Check for numbered list
+                const numberedMatch = line.match(/^(\d+)\. (.+)$/);
+                if (numberedMatch) {
+                    if (inBulletList) {
+                        result.push('<ul>' + bulletListItems.join('') + '</ul>');
+                        bulletListItems = [];
+                        inBulletList = false;
+                    }
+                    if (!inNumberedList) {
+                        inNumberedList = true;
+                        numberedListItems = [];
+                    }
+                    numberedListItems.push('<li>' + numberedMatch[2] + '</li>');
+                    continue;
+                }
+                
+                // Check for bullet list
+                const bulletMatch = line.match(/^[-*] (.+)$/);
+                if (bulletMatch) {
+                    if (inNumberedList) {
+                        result.push('<ol>' + numberedListItems.join('') + '</ol>');
+                        numberedListItems = [];
+                        inNumberedList = false;
+                    }
+                    if (!inBulletList) {
+                        inBulletList = true;
+                        bulletListItems = [];
+                    }
+                    bulletListItems.push('<li>' + bulletMatch[1] + '</li>');
+                    continue;
+                }
+                
+                // Close any open lists
+                if (inBulletList) {
+                    result.push('<ul>' + bulletListItems.join('') + '</ul>');
+                    bulletListItems = [];
+                    inBulletList = false;
+                }
+                if (inNumberedList) {
+                    result.push('<ol>' + numberedListItems.join('') + '</ol>');
+                    numberedListItems = [];
+                    inNumberedList = false;
+                }
+                
+                // Regular line
+                result.push(line);
+            }
+            
+            // Close any remaining lists
+            if (inBulletList) {
+                result.push('<ul>' + bulletListItems.join('') + '</ul>');
+            }
+            if (inNumberedList) {
+                result.push('<ol>' + numberedListItems.join('') + '</ol>');
+            }
+            
+            html = result.join('\n');
+            
+            // Inline code (`code`) - must be done after code blocks
+            html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+            
+            // Bold (**text** or __text__)
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+            
+            // Italic (*text* or _text_) - must be done after bold
+            // Since bold is already processed, remaining single * or _ are italic
+            html = html.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
+            html = html.replace(/_([^_\n]+?)_/g, '<em>$1</em>');
+            
+            // Strikethrough (~~text~~)
+            html = html.replace(/~~(.+?)~~/g, '<s>$1</s>');
+            
+            // Replace code block placeholders with actual code blocks
+            codeBlocks.forEach((codeBlock, index) => {
+                html = html.replace(`__CODE_BLOCK_${index}__`, codeBlock);
+            });
+            
+            // Convert line breaks to <br> for regular text (preserve code blocks)
+            // Since code blocks are already replaced, we need to protect them
+            // Split by code blocks, process text parts, then rejoin
+            const codeBlockRegex = /<pre><code>[\s\S]*?<\/code><\/pre>/g;
+            const codeBlockParts = [];
+            let blockIndex = 0;
+            html = html.replace(codeBlockRegex, (match) => {
+                const placeholder = `__PROTECTED_CODE_${blockIndex}__`;
+                codeBlockParts.push(match);
+                blockIndex++;
+                return placeholder;
+            });
+            
+            // Now convert \n to <br> in the remaining text
+            html = html.replace(/\n/g, (match, offset, string) => {
+                // Don't convert if it's part of blockquote, list, etc.
+                const before = string.substring(Math.max(0, offset - 50), offset);
+                const after = string.substring(offset, Math.min(string.length, offset + 50));
+                if (before.includes('<blockquote>') || after.includes('</blockquote>') ||
+                    before.includes('<ul>') || after.includes('</ul>') ||
+                    before.includes('<ol>') || after.includes('</ol>') ||
+                    before.includes('<li>')) {
+                    return match;
+                }
+                return '<br>';
+            });
+            
+            // Restore code blocks
+            codeBlockParts.forEach((codeBlock, index) => {
+                html = html.replace(`__PROTECTED_CODE_${index}__`, codeBlock);
+            });
+            
+            return html;
+        }
+
+        // Format text using markdown-style syntax
+        function insertMarkdownFormatting(markdown) {
+            // Ensure messageInput has focus
+            if (document.activeElement !== messageInput) {
+                messageInput.focus();
+            }
+            
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) {
+                // If no selection, create a range at the end of the input
+                const range = document.createRange();
+                range.selectNodeContents(messageInput);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            
+            const range = selection.getRangeAt(0);
+            const selectedText = range.toString();
+            
+            if (selectedText) {
+                // Wrap selected text
+                let formattedText = '';
+                switch(markdown) {
+                    case 'bold':
+                        formattedText = `**${selectedText}**`;
+                        break;
+                    case 'italic':
+                        formattedText = `*${selectedText}*`;
+                        break;
+                    case 'code':
+                        formattedText = `\`${selectedText}\``;
+                        break;
+                    case 'strikethrough':
+                        formattedText = `~~${selectedText}~~`;
+                        break;
+                    default:
+                        formattedText = selectedText;
+                }
+                
+                range.deleteContents();
+                const textNode = document.createTextNode(formattedText);
+                range.insertNode(textNode);
+                
+                // Position cursor after the formatting
+                range.setStartAfter(textNode);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } else {
+                // Insert markdown syntax at cursor
+                let textToInsert = '';
+                switch(markdown) {
+                    case 'bold':
+                        textToInsert = '****';
+                        break;
+                    case 'italic':
+                        textToInsert = '**';
+                        break;
+                    case 'code':
+                        textToInsert = '``';
+                        break;
+                    case 'strikethrough':
+                        textToInsert = '~~~~';
+                        break;
+                    case 'codeBlock':
+                        textToInsert = '```\n\n```';
+                        break;
+                    case 'quote':
+                        textToInsert = '> ';
+                        break;
+                    case 'bulletList':
+                        textToInsert = '- ';
+                        break;
+                    case 'numberedList':
+                        textToInsert = '1. ';
+                        break;
+                }
+                
+                const textNode = document.createTextNode(textToInsert);
+                range.insertNode(textNode);
+                
+                // Position cursor appropriately
+                if (markdown === 'bold' || markdown === 'code' || markdown === 'strikethrough') {
+                    range.setStart(textNode, textToInsert.length / 2);
+                    range.setEnd(textNode, textToInsert.length / 2);
+                } else if (markdown === 'codeBlock') {
+                    range.setStart(textNode, 4);
+                    range.setEnd(textNode, 4);
+                } else {
+                    range.setStart(textNode, textToInsert.length);
+                    range.setEnd(textNode, textToInsert.length);
+                }
+                
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            
+            messageInput.focus();
+        }
+
+        // Update formatText function to use markdown-style formatting
+        window.formatText = function(command) {
+            // Use markdown-style formatting instead of execCommand
+            insertMarkdownFormatting(command);
+        };
+
+        // Optimized file transfer configuration
+        const MIN_CHUNK_SIZE = 262144; // 256KB minimum
+        const MAX_CHUNK_SIZE = 4194304; // 4MB maximum
+        const INITIAL_CHUNK_SIZE = 1048576; // Start with 1MB chunks
+        const MAX_MEMORY_USAGE = 1.5 * 1024 * 1024 * 1024; // 1.5GB max memory usage (deprecated - using streaming)
+        const MAX_PENDING_CHUNKS = 128; // Maximum chunks in flight
+        const SPEED_MEASUREMENT_INTERVAL = 500; // 500ms
+        
+        // Check if File System Access API is available
+        const supportsFileSystemAccess = 'showSaveFilePicker' in window;
+        
+        let currentChunkSize = INITIAL_CHUNK_SIZE;
+        let fileQueue = [];
+        let isTransferring = false;
+        let lastTransferTime = Date.now();
+        let bytesTransferred = 0;
+        let pendingChunks = 0;
+        let transferSpeed = 0; // bytes per second
+
+        // Improved chunk size adjustment function
+        function adjustChunkSize(bytesSent, timeTaken) {
+            // Calculate current speed in MB/s
+            const speedMBps = (bytesSent * 8) / (timeTaken * 1000);
+            const currentSpeed = bytesSent / timeTaken * 1000; // bytes per second
+            
+            // Use exponential moving average for speed
+            transferSpeed = transferSpeed * 0.7 + currentSpeed * 0.3;
+            
+            console.log(`Current transfer speed: ${speedMBps.toFixed(2)} Mbps`);
+            console.log(`Current chunk size: ${formatFileSize(currentChunkSize)}`);
+
+            // More aggressive chunk size adjustment
+            if (timeTaken < 100 && currentChunkSize < MAX_CHUNK_SIZE) {
+                // Transfer is very fast, increase chunk size more aggressively
+                currentChunkSize = Math.min(currentChunkSize * 4, MAX_CHUNK_SIZE);
+                console.log(`Increasing chunk size to: ${formatFileSize(currentChunkSize)}`);
+            } else if (timeTaken > 200 && currentChunkSize > MIN_CHUNK_SIZE) {
+                // Transfer is slow, decrease chunk size
+                currentChunkSize = Math.max(currentChunkSize / 2, MIN_CHUNK_SIZE);
+                console.log(`Decreasing chunk size to: ${formatFileSize(currentChunkSize)}`);
+            }
+
+            // Calculate optimal number of parallel chunks based on speed
+            const optimalPendingChunks = Math.min(
+                Math.ceil(transferSpeed * 0.2 / currentChunkSize), // 200ms worth of chunks
+                MAX_PENDING_CHUNKS
+            );
+
+            console.log(`Optimal pending chunks: ${optimalPendingChunks}`);
+            return optimalPendingChunks;
+        }
+
+        // Initialize WebSocket connection and WebRTC
+        function initializePeer() {
+            // Generate a random 4-character ID
+            const randomId = Math.random().toString(36).substring(2, 6);
+            peerId = randomId;
+            
+            // Determine WebSocket URL based on current protocol
+            // Use ws:// for HTTP, wss:// for HTTPS
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/${randomId}`;
+            
+            console.log('Connecting to WebSocket:', wsUrl);
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                // Register with server
+                ws.send(JSON.stringify({
+                    type: 'register',
+                    peer_id: randomId
+                }));
+            };
+            
+            ws.onmessage = async (event) => {
+                const message = JSON.parse(event.data);
+                await handleSignalingMessage(message);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addSystemMessage('WebSocket connection error');
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                addSystemMessage('Disconnected from server. Click to reconnect');
+                peerIdElement.innerHTML = `<span style="cursor: pointer; text-decoration: underline" onclick="initializePeer()">Reconnect</span>`;
+                // Show QR panel when disconnected from server (only if we have a peer ID and no active connection)
+                if (peerId && !dataChannel) {
+                    generateQRCode(peerId);
+                    showQRPanel();
+                }
+            };
+        }
+        
+        // Handle signaling messages from WebSocket
+        async function handleSignalingMessage(message) {
+            switch (message.type) {
+                case 'registered':
+                    peerIdElement.textContent = `Your ID: ${message.peer_id}`;
+                    console.log('My peer ID is:', message.peer_id);
+                    generateQRCode(message.peer_id);
+                    showQRPanel();
+                    addSystemMessage(`Connected to server. Your ID: ${message.peer_id}`);
+                    break;
+                    
+                case 'connection-request':
+                    // Incoming connection request
+                    remotePeerId = message.from;
+                    addSystemMessage(`Connection request from: ${message.from}`);
+                    await handleIncomingConnection();
+                    break;
+                    
+                case 'peer-unavailable':
+                    addSystemMessage(`Peer ${message.target} not found or not connected`);
+                    break;
+                    
+                case 'offer':
+                    // Received WebRTC offer
+                    remotePeerId = message.from;
+                    await handleOffer(message.offer);
+                    break;
+                    
+                case 'answer':
+                    // Received WebRTC answer
+                    await handleAnswer(message.answer);
+                    break;
+                    
+                case 'ice-candidate':
+                    // Received ICE candidate
+                    await handleIceCandidate(message.candidate);
+                    break;
+                    
+                case 'peer-disconnected':
+                    addSystemMessage(`Peer ${message.from} disconnected`);
+                    cleanupConnection();
+                    break;
+            }
+        }
+        
+        // Create RTCPeerConnection
+        function createPeerConnection() {
+            const configuration = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' }
+                ]
+            };
+            
+            peerConnection = new RTCPeerConnection(configuration);
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log('Generated ICE candidate:', event.candidate.candidate);
+                    if (ws && ws.readyState === WebSocket.OPEN && remotePeerId) {
+                        ws.send(JSON.stringify({
+                            type: 'ice-candidate',
+                            target: remotePeerId,
+                            candidate: event.candidate
+                        }));
+                    }
+                } else {
+                    console.log('ICE candidate gathering complete');
+                }
+            };
+            
+            // Handle ICE connection state
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE connection state:', peerConnection.iceConnectionState);
+                if (peerConnection.iceConnectionState === 'failed') {
+                    console.error('ICE connection failed');
+                    addSystemMessage('Connection failed. Trying to reconnect...');
+                    // Try to restart ICE
+                    peerConnection.restartIce();
+                }
+            };
+            
+            // Handle ICE gathering state
+            peerConnection.onicegatheringstatechange = () => {
+                console.log('ICE gathering state:', peerConnection.iceGatheringState);
+            };
+            
+            // Handle connection state changes
+            peerConnection.onconnectionstatechange = () => {
+                console.log('Connection state:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'failed' || 
+                    peerConnection.connectionState === 'disconnected' ||
+                    peerConnection.connectionState === 'closed') {
+                    cleanupConnection();
+                }
+            };
+            
+            // Setup data channel if we're the initiator
+            if (isInitiator) {
+                dataChannel = peerConnection.createDataChannel('messages', {
+                    ordered: true
+                });
+                setupDataChannel();
+            } else {
+                // Set up listener for incoming data channel
+                peerConnection.ondatachannel = (event) => {
+                    dataChannel = event.channel;
+                    setupDataChannel();
+                };
+            }
+        }
+        
+        // Setup data channel event handlers
+        function setupDataChannel() {
+            dataChannel.onopen = () => {
+                addSystemMessage(`Connected to peer: ${remotePeerId}`);
+                hideQRPanel();
+            };
+            
+            dataChannel.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                // Log received message details
+                console.group('Received Message');
+                console.log('Message Type:', data.type);
+                
+                switch(data.type) {
+                    case 'text':
+                        console.log('Content:', data.content);
+                        break;
+                    case 'file-meta':
+                        console.log('File Name:', data.name);
+                        console.log('File Size:', formatFileSize(data.size));
+                        console.log('File ID:', data.id);
+                        break;
+                    case 'file-chunk':
+                        console.log('Chunk Offset:', data.offset);
+                        console.log('File Size:', formatFileSize(data.size));
+                        console.log('Chunk Size:', formatFileSize(data.chunk.length));
+                        console.log('File ID:', data.id);
+                        break;
+                    case 'receiver-ready':
+                        console.log('Receiver Preferred Chunk Size:', formatFileSize(data.preferredChunkSize));
+                        console.log('Receiver Max Parallel Chunks:', data.maxParallelChunks);
+                        break;
+                    case 'receiver-feedback':
+                        console.log('Feedback Status:', data.status);
+                        console.log('Current Speed:', formatFileSize(data.currentSpeed) + '/s');
+                        break;
+                    case 'chunk-request':
+                        console.log('Requested Chunks:', data.chunks.length);
+                        console.log('File ID:', data.id);
+                        break;
+                    case 'file-reject':
+                        console.log('Reject Reason:', data.reason);
+                        break;
+                }
+                
+                console.log('Timestamp:', new Date().toISOString());
+                console.groupEnd();
+                
+                // Process the message
+                if (data.type === 'text') {
+                    const formattedContent = data.formatted || parseMarkdown(data.content);
+                    addMessageToChat(formattedContent, 'text', 'received');
+                } else if (data.type === 'file-meta' || data.type === 'file-chunk') {
+                    handleReceivedFile(data);
+                }
+            };
+            
+            dataChannel.onclose = () => {
+                addSystemMessage('Peer disconnected');
+                cleanupConnection();
+            };
+            
+            dataChannel.onerror = (error) => {
+                console.error('Data channel error:', error);
+                addSystemMessage('Data channel error');
+                cleanupConnection();
+            };
+        }
+        
+        // Handle incoming connection (we're the receiver)
+        async function handleIncomingConnection() {
+            isInitiator = false;
+            if (!peerConnection) {
+                createPeerConnection();
+            }
+            // Wait for offer - the offer will be handled in handleOffer
+        }
+        
+        // Handle WebRTC offer
+        async function handleOffer(offer) {
+            try {
+                if (!peerConnection) {
+                    isInitiator = false;
+                    createPeerConnection();
+                }
+                
+                console.log('Received offer, setting remote description...');
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                
+                // Process any queued ICE candidates
+                await processIceCandidateQueue();
+                
+                console.log('Creating answer...');
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'answer',
+                        target: remotePeerId,
+                        answer: answer
+                    }));
+                    console.log('Sent answer to', remotePeerId);
+                }
+            } catch (error) {
+                console.error('Error handling offer:', error);
+                addSystemMessage(`Error handling connection: ${error.message}`);
+            }
+        }
+        
+        // Handle WebRTC answer
+        async function handleAnswer(answer) {
+            try {
+                console.log('Received answer, setting remote description...');
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                
+                // Process any queued ICE candidates
+                await processIceCandidateQueue();
+                console.log('Remote description set successfully');
+            } catch (error) {
+                console.error('Error handling answer:', error);
+                addSystemMessage(`Error handling answer: ${error.message}`);
+            }
+        }
+        
+        // Handle ICE candidate
+        async function handleIceCandidate(candidate) {
+            if (!peerConnection) {
+                console.warn('Received ICE candidate but no peer connection exists');
+                return;
+            }
+            
+            try {
+                // If remote description is set, add candidate immediately
+                if (peerConnection.remoteDescription) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log('Added ICE candidate:', candidate.candidate);
+                } else {
+                    // Queue candidate for later
+                    iceCandidateQueue.push(candidate);
+                    console.log('Queued ICE candidate (waiting for remote description)');
+                }
+            } catch (error) {
+                console.error('Error adding ICE candidate:', error);
+            }
+        }
+        
+        // Process queued ICE candidates after remote description is set
+        async function processIceCandidateQueue() {
+            if (iceCandidateQueue.length > 0 && peerConnection && peerConnection.remoteDescription) {
+                console.log(`Processing ${iceCandidateQueue.length} queued ICE candidates`);
+                while (iceCandidateQueue.length > 0) {
+                    const candidate = iceCandidateQueue.shift();
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        console.log('Added queued ICE candidate:', candidate.candidate);
+                    } catch (error) {
+                        console.error('Error adding queued ICE candidate:', error);
+                    }
+                }
+            }
+        }
+        
+        // Cleanup connection
+        function cleanupConnection() {
+            if (dataChannel) {
+                dataChannel.close();
+                dataChannel = null;
+            }
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            remotePeerId = null;
+            isInitiator = false;
+            iceCandidateQueue = []; // Clear ICE candidate queue
+            
+            // Show QR panel again when peer disconnects (only if we have a peer ID)
+            if (peerId) {
+                generateQRCode(peerId);
+                showQRPanel();
+            }
+        }
+
+        // Connect to another peer
+        async function connectToPeer(targetPeerId = null) {
+            const targetId = targetPeerId || peerIdInput.value.trim();
+            if (!targetId) {
+                addSystemMessage('Please enter a peer ID');
+                return;
+            }
+
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addSystemMessage('Not connected to server. Please reconnect first');
+                return;
+            }
+
+            try {
+                addSystemMessage(`Connecting to peer: ${targetId}...`);
+                remotePeerId = targetId;
+                isInitiator = true;
+                
+                // Clean up any existing connection first
+                if (peerConnection) {
+                    cleanupConnection();
+                }
+                
+                // Create peer connection
+                createPeerConnection();
+                
+                // Wait a bit for peer connection to initialize
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Create offer
+                console.log('Creating offer...');
+                const offer = await peerConnection.createOffer({
+                    offerToReceiveAudio: false,
+                    offerToReceiveVideo: false
+                });
+                
+                await peerConnection.setLocalDescription(offer);
+                console.log('Local description set, sending offer...');
+                
+                // Send connection request and offer
+                ws.send(JSON.stringify({
+                    type: 'connect',
+                    target: targetId
+                }));
+                
+                ws.send(JSON.stringify({
+                    type: 'offer',
+                    target: targetId,
+                    offer: offer
+                }));
+                
+                if (!targetPeerId) {
+                    peerIdInput.value = '';
+                }
+            } catch (err) {
+                console.error('Connection error:', err);
+                addSystemMessage(`Failed to connect: ${err.message}`);
+                cleanupConnection();
+            }
+        }
+
+        // Send text message
+        function sendMessage() {
+            const messageText = getMessageText().trim();
+            if (!messageText) return;
+
+            if (dataChannel && dataChannel.readyState === 'open') {
+                // Send both plain text and formatted HTML
+                const messageHTML = parseMarkdown(messageText);
+                dataChannel.send(JSON.stringify({
+                    type: 'text',
+                    content: messageText,
+                    formatted: messageHTML
+                }));
+                addMessageToChat(messageHTML, 'text', 'sent');
+                messageInput.innerHTML = '';
+                hideEmptyChat();
+            } else {
+                addSystemMessage('Not connected to a peer');
+            }
+        }
+
+        // Function to format file size with appropriate units
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+        }
+
+        // Function to check if file size is manageable
+        // With streaming, we can handle much larger files
+        function isFileSizeManageable(fileSize) {
+            // For very large files (>10GB), warn but allow
+            const veryLargeLimit = 10 * 1024 * 1024 * 1024; // 10GB
+            if (fileSize > veryLargeLimit) {
+                const maxSize = formatFileSize(veryLargeLimit);
+                addSystemMessage(`⚠️ File is very large (${formatFileSize(fileSize)}). Transfer may take a while.`);
+                return true; // Still allow, just warn
+            }
+            return true; // Always allow with streaming
+        }
+
+        // Enhanced file upload handler
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file || !dataChannel || dataChannel.readyState !== 'open') {
+                addSystemMessage('No connection available for file transfer');
+                return;
+            }
+
+            if (!isFileSizeManageable(file.size)) {
+                return;
+            }
+
+            try {
+                console.log(`Starting file transfer: ${file.name} (${formatFileSize(file.size)})`);
+                addSystemMessage(`📤 Starting to send file: ${file.name} (${formatFileSize(file.size)})`);
+                const messageDiv = addMessageToChat(file.name, 'file', 'sent');
+                const progressBar = createProgressBar(messageDiv);
+                
+                const fileId = Math.random().toString(36).substring(2);
+                let offset = 0;
+                let lastMeasurement = Date.now();
+                bytesTransferred = 0;
+                pendingChunks = 0;
+                currentChunkSize = INITIAL_CHUNK_SIZE; // Reset chunk size for new transfer
+                transferSpeed = 0; // Reset speed measurement
+                
+                // Send file metadata with initial chunk size
+                dataChannel.send(JSON.stringify({
+                    type: 'file-meta',
+                    id: fileId,
+                    name: file.name,
+                    size: file.size,
+                    chunkSize: currentChunkSize
+                }));
+
+                // Enhanced chunk sending function
+                async function sendChunk(chunkOffset) {
+                    if (chunkOffset >= file.size) return 0;
+                    
+                    const chunk = file.slice(chunkOffset, chunkOffset + currentChunkSize);
+                    const arrayBuffer = await chunk.arrayBuffer();
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    
+                    // Convert Uint8Array to Array for JSON serialization
+                    const chunkArray = Array.from(uint8Array);
+                    dataChannel.send(JSON.stringify({
+                        type: 'file-chunk',
+                        id: fileId,
+                        chunk: chunkArray,
+                        offset: chunkOffset,
+                        size: file.size
+                    }));
+
+                    return chunk.size;
+                }
+
+                let optimalPendingChunks = 32; // Start with moderate parallelism
+                let totalBytesSent = 0;
+
+                // Enhanced chunk sending loop with dynamic parallelism
+                while (offset < file.size) {
+                    const chunkPromises = [];
+                    
+                    // Send multiple chunks in parallel based on current performance
+                    while (pendingChunks < optimalPendingChunks && offset < file.size) {
+                        chunkPromises.push(sendChunk(offset));
+                        offset += currentChunkSize;
+                        pendingChunks++;
+                    }
+                    
+                    // Wait for current batch of chunks to complete
+                    const batchSizes = await Promise.all(chunkPromises);
+                    const batchBytes = batchSizes.reduce((a, b) => a + b, 0);
+                    pendingChunks = 0;
+                    totalBytesSent += batchBytes;
+
+                    // Measure and adjust chunk size and parallelism
+                    const now = Date.now();
+                    if (now - lastMeasurement >= SPEED_MEASUREMENT_INTERVAL) {
+                        bytesTransferred += batchBytes;
+                        optimalPendingChunks = adjustChunkSize(bytesTransferred, now - lastMeasurement);
+                        
+                        // Calculate and display transfer speed
+                        const speed = (bytesTransferred / (now - lastMeasurement)) * 1000;
+                        const speedMBps = (speed * 8) / (1024 * 1024);
+                        console.log(`Current transfer speed: ${speedMBps.toFixed(2)} Mbps`);
+                        
+                        bytesTransferred = 0;
+                        lastMeasurement = now;
+                    }
+
+                    const progress = (totalBytesSent / file.size) * 100;
+                    updateProgress(progressBar, progress);
+                }
+
+                updateProgress(progressBar, 100);
+                console.log('File transfer completed:', file.name);
+                addSystemMessage(`✅ File transfer completed: ${file.name}`);
+
+            } catch (err) {
+                console.error('File transfer error:', err);
+                addSystemMessage(`❌ File transfer failed: ${err.message}`);
+            }
+        });
+
+        // Initialize fileReceivers Map
+        const fileReceivers = new Map();
+
+        // Enhanced file receiver to handle optimized transfers
+        async function handleReceivedFile(data) {
+            if (data.type === 'file-meta') {
+                await handleFileMeta(data);
+            } else if (data.type === 'file-chunk') {
+                await handleFileChunk(data);
+            } else if (data.type === 'chunk-request') {
+                // Handle resending of missing chunks
+                resendMissingChunks(data.id, data.chunks);
+            } else if (data.type === 'file-reject') {
+                addSystemMessage(`❌ File transfer rejected: ${data.reason}`);
+            }
+        }
+
+        // Handle file metadata
+        async function handleFileMeta(data) {
+            if (!isFileSizeManageable(data.size)) {
+                if (dataChannel && dataChannel.readyState === 'open') {
+                    dataChannel.send(JSON.stringify({
+                        type: 'file-reject',
+                        id: data.id,
+                        reason: 'File size too large'
+                    }));
+                }
+                return;
+            }
+
+            console.log(`Receiving file: ${data.name} (${formatFileSize(data.size)})`);
+            addSystemMessage(`📥 Receiving file: ${data.name} (${formatFileSize(data.size)})`);
+            
+            // CREATE RECEIVER IMMEDIATELY to handle incoming chunks
+            // This prevents "No receiver found" errors while waiting for save dialog
+            const receiver = {
+                name: data.name,
+                size: data.size,
+                chunks: new Map(), // Store chunks temporarily
+                receivedBytes: 0,
+                messageDiv: addMessageToChat(data.name, 'file', 'received'),
+                startTime: Date.now(),
+                lastSpeedUpdate: Date.now(),
+                bytesInInterval: 0,
+                currentSpeed: 0,
+                missingChunks: new Set(),
+                lastChunkRequest: Date.now(),
+                receivedChunks: new Set(),
+                fileHandle: null,
+                writableStream: null,
+                useStreaming: false,
+                chunkOffsets: [],
+                isInitializing: true, // Flag to track if we're waiting for save dialog
+                pendingChunks: [], // Queue chunks that arrive during initialization
+                pendingWrites: new Set(), // Track pending write operations
+                writeQueue: Promise.resolve(), // Serialize writes to prevent race conditions
+                writeQueueRunning: false // Track if queue processor is running
+            };
+            
+            fileReceivers.set(data.id, receiver);
+            receiver.progressBar = createProgressBar(receiver.messageDiv);
+            
+            // Send ready signal immediately so sender can start sending chunks
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify({
+                    type: 'receiver-ready',
+                    id: data.id,
+                    preferredChunkSize: INITIAL_CHUNK_SIZE,
+                    maxParallelChunks: MAX_PENDING_CHUNKS
+                }));
+            }
+            
+            // Add a "Save File" button if File System Access API is available
+            // This requires a user gesture, so we can't show the picker automatically
+            if (supportsFileSystemAccess) {
+                addSystemMessage(`💾 Click "Save File" button to choose save location for: ${data.name}`);
+                addSaveFileButton(receiver, data);
+            } else {
+                receiver.isInitializing = false;
+                console.log('ℹ️ File System Access API not supported in this browser. Using memory storage.');
+                addSystemMessage(`ℹ️ Using memory storage (browser doesn't support direct disk write)`);
+            }
+        }
+        
+        // Add a "Save File" button to the message that triggers the file picker on user click
+        function addSaveFileButton(receiver, fileMeta) {
+            const fileInfo = receiver.messageDiv.querySelector('.file-info');
+            if (!fileInfo) return;
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.marginTop = '8px';
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '8px';
+            
+            const saveButton = document.createElement('button');
+            saveButton.textContent = '💾 Save File';
+            saveButton.className = 'save-file-button';
+            saveButton.style.padding = '6px 12px';
+            saveButton.style.borderRadius = '4px';
+            saveButton.style.border = 'none';
+            saveButton.style.backgroundColor = '#007bff';
+            saveButton.style.color = 'white';
+            saveButton.style.cursor = 'pointer';
+            saveButton.style.fontSize = '14px';
+            
+            saveButton.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Disable button to prevent multiple clicks
+                saveButton.disabled = true;
+                saveButton.textContent = '⏳ Opening...';
+                
+                try {
+                    // Get file extension for proper MIME type
+                    const fileExtension = fileMeta.name.includes('.') 
+                        ? '.' + fileMeta.name.split('.').pop().toLowerCase()
+                        : '';
+                    
+                    // Build file picker options
+                    const pickerOptions = {
+                        suggestedName: fileMeta.name
+                    };
+                    
+                    // Add file type restrictions only if we have a valid extension
+                    if (fileExtension) {
+                        const mimeType = getMimeType(fileMeta.name);
+                        if (mimeType !== 'application/octet-stream') {
+                            pickerOptions.types = [{
+                                description: 'File',
+                                accept: { [mimeType]: [fileExtension] }
+                            }];
+                        }
+                    }
+                    
+                    const fileHandle = await window.showSaveFilePicker(pickerOptions);
+                    const writableStream = await fileHandle.createWritable();
+                    
+                    // Update receiver with file handle and stream
+                    receiver.fileHandle = fileHandle;
+                    receiver.writableStream = writableStream;
+                    receiver.useStreaming = true;
+                    receiver.isInitializing = false; // Ready to write
+                    
+                    console.log('✅ Using File System Access API for direct disk write');
+                    console.log('📁 File will be saved directly to:', fileHandle.name);
+                    addSystemMessage(`✅ File will be saved directly to disk (no memory limit!)`);
+                    
+                    // Update button
+                    saveButton.textContent = '✅ Saving...';
+                    saveButton.style.backgroundColor = '#28a745';
+                    
+                    // Process any chunks that arrived while waiting
+                    await processQueuedChunks(receiver, fileMeta.id);
+                    
+                    // Hide button after a moment
+                    setTimeout(() => {
+                        buttonContainer.style.display = 'none';
+                    }, 1000);
+                    
+                } catch (err) {
+                    receiver.isInitializing = false;
+                    if (err.name === 'AbortError') {
+                        // User cancelled
+                        saveButton.disabled = false;
+                        saveButton.textContent = '💾 Save File';
+                        addSystemMessage(`❌ File save cancelled by user`);
+                    } else {
+                        // Error occurred
+                        console.warn('⚠️ File System Access API failed, falling back to memory storage:', err);
+                        addSystemMessage(`⚠️ Direct disk write unavailable, using memory storage`);
+                        receiver.isInitializing = false;
+                        saveButton.textContent = '⚠️ Using Memory';
+                        saveButton.style.backgroundColor = '#ffc107';
+                        saveButton.style.color = '#000';
+                        // Process queued chunks with memory storage
+                        await processQueuedChunks(receiver, fileMeta.id);
+                    }
+                }
+            };
+            
+            buttonContainer.appendChild(saveButton);
+            fileInfo.appendChild(buttonContainer);
+        }
+        
+        // Process chunks that arrived while waiting for save dialog
+        async function processQueuedChunks(receiver, fileId) {
+            // Sort chunks by offset and write them
+            const sortedChunks = Array.from(receiver.chunks.entries())
+                .sort(([offsetA], [offsetB]) => offsetA - offsetB);
+            
+            console.log(`📦 Processing ${sortedChunks.length} queued chunks...`);
+            
+            const writePromises = [];
+            
+            for (const [offset, chunk] of sortedChunks) {
+                // During initialization, chunks are marked as received but not yet written
+                // So we write ALL chunks in the map, regardless of receivedChunks status
+                // The receivedChunks check is only for preventing duplicate processing of incoming chunks
+                
+                if (receiver.useStreaming && receiver.writableStream) {
+                    const writePromise = (async () => {
+                        // Chain this write to the queue to ensure sequential execution
+                        receiver.writeQueue = receiver.writeQueue.then(async () => {
+                            try {
+                                // Seek to the correct position and write atomically
+                                await receiver.writableStream.seek(offset);
+                                await receiver.writableStream.write(chunk);
+                                console.log(`✅ Wrote queued chunk at offset ${offset} (${chunk.length} bytes)`);
+                            } catch (err) {
+                                console.error('Error writing queued chunk:', err);
+                                receiver.useStreaming = false;
+                                throw err;
+                            } finally {
+                                receiver.pendingWrites.delete(writePromise);
+                            }
+                        });
+                        
+                        await receiver.writeQueue;
+                    })();
+                    
+                    receiver.pendingWrites.add(writePromise);
+                    writePromises.push(writePromise);
+                }
+            }
+            
+            // Remove chunks from memory immediately after queueing writes
+            // This prevents them from being written again if they arrive later
+            receiver.chunks.clear();
+            
+            // Wait for all writes to complete
+            if (writePromises.length > 0) {
+                await Promise.all(writePromises);
+                console.log(`✅ Finished writing ${writePromises.length} queued chunks`);
+            }
+            
+            updateReceiveProgress(receiver);
+            checkFileComplete(receiver);
+        }
+
+        // Handle file chunk
+        async function handleFileChunk(data) {
+            const receiver = fileReceivers.get(data.id);
+            if (!receiver) {
+                console.error('No receiver found for file:', data.id);
+                return;
+            }
+
+            const chunk = new Uint8Array(data.chunk);
+            
+            // Check if chunk was already processed (prevent duplicate writes)
+            if (receiver.receivedChunks.has(data.offset)) {
+                console.log(`⚠️ Chunk at offset ${data.offset} already received, skipping duplicate`);
+                return;
+            }
+            
+            // Mark as received BEFORE processing to prevent race conditions
+            receiver.receivedChunks.add(data.offset);
+            
+            // If still initializing (waiting for save dialog), store in memory
+            if (receiver.isInitializing) {
+                receiver.chunks.set(data.offset, chunk);
+                receiver.receivedBytes += chunk.length;
+                receiver.bytesInInterval += chunk.length;
+                
+                // Update progress while waiting
+                updateReceiveProgress(receiver);
+                return; // Don't process further until initialization completes
+            }
+            
+            // If streaming is enabled, write directly to disk
+            if (receiver.useStreaming && receiver.writableStream) {
+                try {
+                    // Serialize writes using a queue to prevent race conditions
+                    const writePromise = (async () => {
+                        // Chain this write to the queue to ensure sequential execution
+                        receiver.writeQueue = receiver.writeQueue.then(async () => {
+                            try {
+                                // Seek to the correct position and write atomically
+                                await receiver.writableStream.seek(data.offset);
+                                await receiver.writableStream.write(chunk);
+                                
+                                // Verify we wrote the correct amount
+                                if (chunk.length !== data.chunk.length) {
+                                    console.warn(`⚠️ Chunk size mismatch at offset ${data.offset}: expected ${data.chunk.length}, got ${chunk.length}`);
+                                }
+                                
+                                // Chunk is written to disk, we can free memory immediately
+                                if (receiver.receivedBytes % (10 * 1024 * 1024) < chunk.length) {
+                                    // Log every 10MB
+                                    console.log(`💾 Written ${formatFileSize(receiver.receivedBytes)}/${formatFileSize(receiver.size)} directly to disk`);
+                                }
+                            } catch (err) {
+                                console.error(`Error writing chunk at offset ${data.offset}:`, err);
+                                throw err; // Re-throw to be caught by outer catch
+                            }
+                        }).catch(err => {
+                            // Ensure queue continues even if one write fails
+                            console.error('Write queue error:', err);
+                            throw err;
+                        });
+                        
+                        await receiver.writeQueue;
+                    })();
+                    
+                    receiver.pendingWrites.add(writePromise);
+                    await writePromise;
+                } catch (err) {
+                    console.error('Error writing chunk to disk:', err);
+                    console.error(`  Offset: ${data.offset}, Chunk size: ${chunk.length}`);
+                    // Fall back to memory storage if disk write fails
+                    receiver.chunks.set(data.offset, chunk);
+                    receiver.useStreaming = false;
+                    addSystemMessage(`⚠️ Disk write error, falling back to memory storage`);
+                }
+            } else {
+                // Store in memory (fallback for browsers without File System Access API)
+                receiver.chunks.set(data.offset, chunk);
+            }
+            
+            receiver.receivedBytes += chunk.length;
+            receiver.bytesInInterval += chunk.length;
+            // Note: receivedChunks already added at the start to prevent duplicates
+
+            updateReceiveSpeed(receiver);
+            checkMissingChunks(receiver, data.id);
+            updateReceiveProgress(receiver);
+            checkFileComplete(receiver);
+        }
+
+        // Update receive speed and send feedback
+        function updateReceiveSpeed(receiver) {
+            const now = Date.now();
+            if (now - receiver.lastSpeedUpdate >= SPEED_MEASUREMENT_INTERVAL) {
+                // Calculate current speed
+                const speed = (receiver.bytesInInterval / (now - receiver.lastSpeedUpdate)) * 1000;
+                const speedMBps = (speed * 8) / (1024 * 1024);
+                receiver.currentSpeed = speed;
+                console.log(`Download speed: ${speedMBps.toFixed(2)} Mbps`);
+
+                // Adaptive flow control
+                if (speed > receiver.currentSpeed * 1.2) { // Speed increased by 20%
+                    sendSpeedFeedback(receiver, 'increase-speed', speed);
+                } else if (speed < receiver.currentSpeed * 0.8) { // Speed decreased by 20%
+                    sendSpeedFeedback(receiver, 'decrease-speed', speed);
+                }
+
+                receiver.bytesInInterval = 0;
+                receiver.lastSpeedUpdate = now;
+            }
+        }
+
+        // Send speed feedback to sender
+        function sendSpeedFeedback(receiver, status, speed) {
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify({
+                    type: 'receiver-feedback',
+                    id: receiver.id,
+                    status: status,
+                    currentSpeed: speed
+                }));
+            }
+        }
+
+        // Check for missing chunks
+        function checkMissingChunks(receiver, fileId) {
+            const now = Date.now();
+            if (now - receiver.lastChunkRequest >= 2000) { // Every 2 seconds
+                const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                const missingChunks = [];
+                
+                for (let i = 0; i < expectedChunks; i++) {
+                    const offset = i * currentChunkSize;
+                    if (!receiver.receivedChunks.has(offset)) {
+                        missingChunks.push(offset);
+                    }
+                }
+
+                if (missingChunks.length > 0 && dataChannel && dataChannel.readyState === 'open') {
+                    console.log(`Requesting ${missingChunks.length} missing chunks`);
+                    dataChannel.send(JSON.stringify({
+                        type: 'chunk-request',
+                        id: fileId,
+                        chunks: missingChunks
+                    }));
+                }
+                
+                receiver.lastChunkRequest = now;
+            }
+        }
+
+        // Update receive progress
+        function updateReceiveProgress(receiver) {
+            const progress = (receiver.receivedBytes / receiver.size) * 100;
+            updateProgress(receiver.progressBar, progress);
+        }
+
+        // Check if file reception is complete
+        async function checkFileComplete(receiver) {
+            if (receiver.receivedBytes >= receiver.size) {
+                const allChunksReceived = verifyAllChunks(receiver);
+                if (allChunksReceived) {
+                    // If streaming, wait for all pending writes to complete
+                    if (receiver.useStreaming && receiver.pendingWrites && receiver.pendingWrites.size > 0) {
+                        console.log(`⏳ Waiting for ${receiver.pendingWrites.size} pending writes before finalizing...`);
+                        await Promise.all(Array.from(receiver.pendingWrites));
+                        console.log('✅ All writes completed, finalizing file...');
+                    }
+                    
+                    console.log('File reception complete, processing...');
+                    await completeFileTransfer(receiver);
+                }
+            }
+        }
+
+        // Helper function to verify all chunks are received
+        function verifyAllChunks(receiver) {
+            // When streaming, chunks are written to disk and removed from memory
+            // So we check receivedChunks Set instead of chunks Map
+            if (receiver.useStreaming) {
+                const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                for (let i = 0; i < expectedChunks; i++) {
+                    const offset = i * currentChunkSize;
+                    if (!receiver.receivedChunks.has(offset)) {
+                        console.log(`Missing chunk at offset ${offset}`);
+                        return false;
+                    }
+                }
+                return true;
+            } else {
+                // For memory storage, check chunks Map
+                const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                for (let i = 0; i < expectedChunks; i++) {
+                    const offset = i * currentChunkSize;
+                    if (!receiver.chunks.has(offset)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+
+        // Function to resend missing chunks
+        async function resendMissingChunks(fileId, chunks) {
+            // Implementation depends on how you're storing the original file
+            // This would need to be implemented based on your file handling strategy
+            console.log(`Resending ${chunks.length} chunks for file ${fileId}`);
+        }
+
+        // Function to get file type
+        function getFileType(fileName) {
+            const extension = fileName.toLowerCase().split('.').pop();
+            const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            const videoTypes = ['mp4', 'webm', 'ogg'];
+            const pdfType = ['pdf'];
+            
+            if (imageTypes.includes(extension)) return 'image';
+            if (videoTypes.includes(extension)) return 'video';
+            if (pdfType.includes(extension)) return 'pdf';
+            return 'other';
+        }
+
+        // Function to simplify file name (remove long IDs, keep meaningful part)
+        function simplifyFileName(fileName) {
+            if (!fileName) return 'Unknown File';
+            
+            // Extract extension
+            const lastDot = fileName.lastIndexOf('.');
+            const extension = lastDot > 0 ? fileName.substring(lastDot) : '';
+            const nameWithoutExt = lastDot > 0 ? fileName.substring(0, lastDot) : fileName;
+            
+            // Remove common ID patterns (long alphanumeric strings)
+            // Pattern: matches strings like "01K73GMFG2Q037WKA2Z69S" or similar
+            let simplified = nameWithoutExt
+                .replace(/^[A-Z0-9]{10,}-/g, '') // Remove leading long IDs
+                .replace(/-[A-Z0-9]{10,}/g, '')  // Remove trailing long IDs
+                .replace(/[A-Z0-9]{12,}/g, '')    // Remove any remaining long IDs
+                .replace(/^-+/g, '')              // Remove leading dashes
+                .replace(/-+$/g, '')              // Remove trailing dashes
+                .replace(/-+/g, '-')              // Replace multiple dashes with single
+                .trim();
+            
+            // If we removed everything, keep the original name but truncate
+            if (!simplified || simplified.length < 3) {
+                simplified = nameWithoutExt.length > 30 
+                    ? nameWithoutExt.substring(0, 30) + '...' 
+                    : nameWithoutExt;
+            }
+            
+            // Clean up common suffixes
+            simplified = simplified
+                .replace(/-NONEDIT$/i, '')
+                .replace(/-EDIT$/i, '')
+                .trim();
+            
+            return simplified + extension;
+        }
+
+        // Function to get MIME type
+        function getMimeType(fileName) {
+            const extension = fileName.toLowerCase().split('.').pop();
+            const mimeTypes = {
+                // Images
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'webp': 'image/webp',
+                // Videos
+                'mp4': 'video/mp4',
+                'webm': 'video/webm',
+                'ogg': 'video/ogg',
+                // PDFs
+                'pdf': 'application/pdf',
+                // Default
+                'default': 'application/octet-stream'
+            };
+            return mimeTypes[extension] || mimeTypes.default;
+        }
+
+        // Modified addMessageToChat for media preview and formatted text
+        function addMessageToChat(content, type, direction = 'sent') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type} ${direction}`;
+            
+            if (type === 'file') {
+                const fileType = getFileType(content);
+                if (fileType === 'image' || fileType === 'video') {
+                    messageDiv.className += ' with-preview';
+                }
+                
+                const size = content.size ? formatFileSize(content.size) : '';
+                const simplifiedName = simplifyFileName(content);
+                messageDiv.className += ' file-message';
+                messageDiv.innerHTML = `
+                    <div class="file-info">
+                        <span class="file-icon">📎</span>
+                        <div class="file-name-container">
+                            <span class="file-name" title="${content}">${simplifiedName}</span>
+                            ${size ? `<span class="file-size">${size}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+
+                if (fileType === 'image' || fileType === 'video') {
+                    const previewContainer = document.createElement('div');
+                    previewContainer.className = 'media-preview';
+                    messageDiv.appendChild(previewContainer);
+                }
+            } else {
+                // Render formatted HTML content
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-text-content';
+                contentDiv.innerHTML = content;
+                messageDiv.appendChild(contentDiv);
+            }
+            
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            hideEmptyChat();
+            
+            return messageDiv;
+        }
+
+        // Add system message
+        function addSystemMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system';
+            messageDiv.innerHTML = `<span class="timestamp">${timestamp}</span> ${message}`;
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            hideEmptyChat();
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function hideEmptyChat() {
+            if (emptyChat) {
+                emptyChat.style.display = 'none';
+            }
+        }
+
+        // Create progress bar element
+        function createProgressBar(messageDiv) {
+            const progressContainer = document.createElement('div');
+            progressContainer.className = 'file-progress';
+            
+            const progressBar = document.createElement('div');
+            progressBar.className = 'file-progress-bar';
+            progressBar.style.width = '0%';
+            
+            progressContainer.appendChild(progressBar);
+            messageDiv.appendChild(progressContainer);
+            
+            return progressBar;
+        }
+
+        // Update progress bar
+        function updateProgress(progressBar, percent) {
+            progressBar.style.width = `${percent}%`;
+        }
+
+        // Handle Enter key and keyboard shortcuts
+        messageInput.addEventListener('keydown', (e) => {
+            // Ctrl+B for bold
+            if (e.ctrlKey && e.key === 'b') {
+                e.preventDefault();
+                formatText('bold');
+                return;
+            }
+            // Ctrl+I for italic
+            if (e.ctrlKey && e.key === 'i') {
+                e.preventDefault();
+                formatText('italic');
+                return;
+            }
+            // Enter to send (Shift+Enter for new line)
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Initialize PeerJS when the page loads
+        initializePeer();
+        
+        // Check and log browser support for direct disk write
+        if (supportsFileSystemAccess) {
+            console.log('✅ Direct disk write supported! Files will be saved directly to disk.');
+            console.log('📋 Testing: Send a large file to see the save dialog appear.');
+        } else {
+            console.log('ℹ️ Direct disk write not supported in this browser.');
+            console.log('💡 Use Chrome/Edge 86+ for direct disk write feature.');
+            console.log('📋 Current browser will use memory storage (limited by available RAM).');
+        }
+
+        // Function to view file (opens in new tab for viewable files)
+        function viewFile(url, fileName, fileType) {
+            if (['image', 'video', 'pdf'].includes(fileType)) {
+                window.open(url, '_blank');
+            } else {
+                // For non-viewable files, trigger download
+                downloadFile(url, fileName);
+            }
+        }
+
+        // Function to download file
+        function downloadFile(url, fileName) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function showDownloadDialog(url, fileName, fileType) {
+            const dialog = document.getElementById('downloadDialog');
+            const overlay = document.getElementById('overlay');
+            const confirmBtn = document.getElementById('confirmDownload');
+
+            // For supported file types, open directly in new tab
+            if (['image', 'video', 'pdf'].includes(fileType)) {
+                window.open(url, '_blank');
+                return;
+            }
+
+            // Show download dialog only for non-viewable files
+            dialog.querySelector('p').textContent = `Do you want to download ${fileName}?`;
+            dialog.classList.add('show');
+            overlay.classList.add('show');
+
+            confirmBtn.onclick = () => {
+                hideDownloadDialog();
+                // Trigger download for non-viewable files
+                downloadFile(url, fileName);
+            };
+        }
+
+        function hideDownloadDialog() {
+            const dialog = document.getElementById('downloadDialog');
+            const overlay = document.getElementById('overlay');
+            dialog.classList.remove('show');
+            overlay.classList.remove('show');
+        }
+
+        // Modified completeFileTransfer to handle cleanup and streaming
+        async function completeFileTransfer(receiver) {
+            try {
+                const transferTime = (Date.now() - receiver.startTime) / 1000;
+                const averageSpeed = (receiver.size / (1024 * 1024)) / transferTime;
+                console.log(`File transfer completed in ${transferTime.toFixed(1)}s at ${averageSpeed.toFixed(2)} MB/s`);
+
+                let url = null;
+                const fileType = getFileType(receiver.name);
+                
+                // If streaming to disk, close the stream and create blob URL for preview
+                if (receiver.useStreaming && receiver.writableStream) {
+                    // Ensure all writes are complete before closing
+                    try {
+                        // Wait for all pending write operations to complete
+                        if (receiver.pendingWrites && receiver.pendingWrites.size > 0) {
+                            console.log(`⏳ Waiting for ${receiver.pendingWrites.size} pending writes to complete...`);
+                            await Promise.all(Array.from(receiver.pendingWrites));
+                            console.log('✅ All writes completed');
+                        }
+                        
+                        // Also wait for the write queue to finish processing
+                        await receiver.writeQueue;
+                        console.log('✅ Write queue finished');
+                        
+                        // Close the stream FIRST to flush all buffered writes
+                        // This ensures the file on disk reflects all writes
+                        await receiver.writableStream.close();
+                        console.log('✅ Stream closed and flushed');
+                        
+                        // Give a small delay to ensure OS has flushed to disk
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        // Now check file size AFTER closing
+                        const finalFile = await receiver.fileHandle.getFile();
+                        const finalSize = finalFile.size;
+                        
+                        console.log(`📊 File size after close: ${formatFileSize(finalSize)}, expected: ${formatFileSize(receiver.size)}`);
+                        
+                        // Verify file size matches expected size
+                        if (finalSize !== receiver.size) {
+                            console.error(`❌ File size mismatch: expected ${receiver.size}, got ${finalSize}`);
+                            
+                            // Verify all chunks were received
+                            const expectedChunks = Math.ceil(receiver.size / currentChunkSize);
+                            let missingChunks = [];
+                            for (let i = 0; i < expectedChunks; i++) {
+                                const offset = i * currentChunkSize;
+                                if (!receiver.receivedChunks.has(offset)) {
+                                    missingChunks.push(offset);
+                                }
+                            }
+                            
+                            if (missingChunks.length > 0) {
+                                console.error(`❌ Missing ${missingChunks.length} chunks:`, missingChunks);
+                                addSystemMessage(`⚠️ File transfer incomplete - missing ${missingChunks.length} chunks. File may be corrupted.`);
+                            } else {
+                                // All chunks received but file size wrong - this is a write error
+                                console.error(`❌ All chunks received but file size incorrect - write error detected`);
+                                addSystemMessage(`⚠️ File write error detected - file may be corrupted`);
+                            }
+                        }
+                        
+                        console.log('✅ File written directly to disk - no memory used!');
+                        console.log(`📁 File saved: ${receiver.fileHandle?.name || receiver.name}`);
+                        console.log(`📊 Final file size: ${formatFileSize(finalSize)}`);
+                        addSystemMessage(`✅ File saved directly to disk: ${receiver.fileHandle?.name || receiver.name}`);
+                        
+                        url = URL.createObjectURL(finalFile);
+                        
+                        // Clear chunks from memory since they're already on disk
+                        receiver.chunks.clear();
+                    } catch (err) {
+                        console.error('Error finalizing file:', err);
+                        addSystemMessage(`⚠️ Error finalizing file: ${err.message}`);
+                        // Try to close anyway
+                        try {
+                            if (receiver.pendingWrites && receiver.pendingWrites.size > 0) {
+                                await Promise.all(Array.from(receiver.pendingWrites));
+                            }
+                            await receiver.writableStream.close();
+                        } catch (closeErr) {
+                            console.error('Error closing stream:', closeErr);
+                        }
+                    }
+                } else {
+                    // Fallback: combine chunks in memory (for browsers without File System Access API)
+                    const sortedChunks = Array.from(receiver.chunks.entries())
+                        .sort(([offsetA], [offsetB]) => offsetA - offsetB)
+                        .map(([_, chunk]) => chunk);
+
+                    const combinedArray = new Uint8Array(receiver.size);
+                    let offset = 0;
+                    
+                    for (const chunk of sortedChunks) {
+                        combinedArray.set(chunk, offset);
+                        offset += chunk.length;
+                    }
+
+                    const mimeType = getMimeType(receiver.name);
+                    const blob = new Blob([combinedArray], { type: mimeType });
+                    url = URL.createObjectURL(blob);
+                    
+                    // Cleanup memory
+                    receiver.chunks.clear();
+                }
+
+                // Add preview for images and videos
+                const previewContainer = receiver.messageDiv.querySelector('.media-preview');
+                
+                if (previewContainer && url) {
+                    if (fileType === 'image') {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = receiver.name;
+                        previewContainer.appendChild(img);
+                    } else if (fileType === 'video') {
+                        const video = document.createElement('video');
+                        video.src = url;
+                        video.controls = true;
+                        previewContainer.appendChild(video);
+                    }
+                }
+
+                // Make the entire message clickable for opening/downloading (only if URL exists)
+                if (url) {
+                    receiver.messageDiv.onclick = (e) => {
+                        // Prevent click when clicking on video controls or buttons
+                        if (e.target.tagName === 'VIDEO' || e.target.tagName === 'BUTTON') return;
+                        viewFile(url, receiver.name, fileType);
+                    };
+                }
+
+                // Create buttons container
+                const buttonsContainer = document.createElement('div');
+                buttonsContainer.className = 'file-buttons';
+
+                // SVG icons
+                const viewIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+                const downloadIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+
+                // Create View button (for viewable files)
+                if (['image', 'video', 'pdf'].includes(fileType) && url) {
+                    const viewBtn = document.createElement('button');
+                    viewBtn.className = 'file-download-btn';
+                    viewBtn.innerHTML = viewIcon + '<span>View</span>';
+                    viewBtn.onclick = (e) => {
+                        e.stopPropagation(); // Prevent triggering the message click
+                        viewFile(url, receiver.name, fileType);
+                    };
+                    buttonsContainer.appendChild(viewBtn);
+                }
+
+                // For streaming files, show "Open" button instead of download
+                if (receiver.useStreaming && receiver.fileHandle) {
+                    const openBtn = document.createElement('button');
+                    openBtn.className = 'file-download-btn';
+                    openBtn.innerHTML = downloadIcon + '<span>Open</span>';
+                    openBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        // File is already saved, just show a message
+                        addSystemMessage(`✅ File saved to disk: ${receiver.name}`);
+                    };
+                    buttonsContainer.appendChild(openBtn);
+                } else if (url) {
+                    // Always create Download button for non-streaming files
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.className = 'file-download-btn';
+                    downloadBtn.innerHTML = downloadIcon + '<span>Download</span>';
+                    downloadBtn.onclick = (e) => {
+                        e.stopPropagation(); // Prevent triggering the message click
+                        downloadFile(url, receiver.name);
+                    };
+                    buttonsContainer.appendChild(downloadBtn);
+                }
+
+                receiver.messageDiv.querySelector('.file-info').appendChild(buttonsContainer);
+                updateProgress(receiver.progressBar, 100);
+                console.log('File ready:', receiver.name);
+                
+                // Cleanup
+                receiver.chunks.clear();
+                fileReceivers.delete(receiver.id);
+            } catch (err) {
+                console.error('Error processing received file:', err);
+                addSystemMessage(`❌ Error processing file: ${err.message}`);
+            }
+        }
+
+        // QR Code variables and functions
+        let qrCode;
+        let html5QrcodeScanner;
+        const qrPanel = document.getElementById('qrPanel');
+        const container = document.querySelector('.container');
+
+        // QR Code management functions
+        function showQRPanel() {
+            qrPanel.classList.remove('hidden');
+            container.style.opacity = '0.3';
+            container.style.pointerEvents = 'none';
+        }
+
+        function hideQRPanel() {
+            qrPanel.classList.add('hidden');
+            container.style.opacity = '1';
+            container.style.pointerEvents = 'auto';
+            if (html5QrcodeScanner) {
+                if (html5QrcodeScanner.clear) {
+                    html5QrcodeScanner.clear().catch(err => console.log('Scanner clear error:', err));
+                } else if (html5QrcodeScanner.stop) {
+                }
+            }
+            // Reset reader view
+            document.getElementById('reader').classList.add('hidden');
+            document.getElementById('qrcode').classList.remove('hidden');
+        }
+
+        function generateQRCode(peerId) {
+            const qrContainer = document.getElementById('qrcode');
+            const qrPeerIdElement = document.getElementById('qrPeerId');
+            
+            qrContainer.innerHTML = ''; // Clear existing QR code
+            qrPeerIdElement.textContent = `Your ID: ${peerId}`; // Update peer ID display
+            
+            qrCode = new QRCode(qrContainer, {
+                text: peerId,
+                width: 220,
+                height: 220,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function initializeQRScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().catch(err => console.log('Scanner clear error:', err));
+            }
+
+            // Use back camera preferentially
+            Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length) {
+                    // Look for back camera first, fallback to any available camera
+                    let cameraId;
+                    
+                    // Try to find back camera (environment facing)
+                    const backCamera = devices.find(device => 
+                        device.label.toLowerCase().includes('back') || 
+                        device.label.toLowerCase().includes('rear') ||
+                        device.label.toLowerCase().includes('environment')
+                    );
+                    
+                    if (backCamera) {
+                        cameraId = backCamera.id;
+                        console.log('Using back camera:', backCamera.label);
+                    } else {
+                        // If no back camera found by label, use the last camera (often back camera on mobile)
+                        cameraId = devices[devices.length - 1].id;
+                        console.log('Using camera:', devices[devices.length - 1].label || 'Unknown camera');
+                    }
+                    
+                    const html5QrCode = new Html5Qrcode("reader");
+                    html5QrCode.start(
+                        cameraId,
+                        {
+                            fps: 10,
+                            qrbox: { width: 200, height: 200 },
+                            facingMode: "environment" // Prefer back camera
+                        },
+                        (decodedText) => {
+                            console.log('QR Code detected:', decodedText);
+                            html5QrCode.stop().then(() => {
+                                connectToPeer(decodedText);
+                                hideQRPanel();
+                            }).catch(err => console.log('Scanner stop error:', err));
+                        },
+                        (errorMessage) => {
+                            // Handle scan errors silently
+                        }
+                    ).catch(err => {
+                        console.error('Failed to start QR scanner:', err);
+                        addSystemMessage('❌ Camera access denied or not available');
+                    });
+                    
+                    // Store reference for cleanup
+                    html5QrcodeScanner = html5QrCode;
+                }
+            }).catch(err => {
+                console.error('Failed to get cameras:', err);
+                addSystemMessage('❌ No cameras found');
+            });
+        }
+
+        // QR Code event listeners
+        document.getElementById('scanButton').addEventListener('click', () => {
+            document.getElementById('reader').classList.remove('hidden');
+            document.getElementById('qrcode').classList.add('hidden');
+            initializeQRScanner();
+        });
+
+        document.getElementById('manualButton').addEventListener('click', () => {
+            hideQRPanel();
+            document.getElementById('peerIdInput').focus();
+        });
+
+        // Enhanced paste event handler for files and text
+        document.addEventListener('paste', async (e) => {
+            // Check if we're pasting into the message input
+            const isMessageInput = e.target === messageInput || messageInput.contains(e.target);
+
+            // Handle files from clipboard (when user copies actual files, not paths)
+            if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                e.preventDefault(); // Prevent default paste behavior
+                const file = e.clipboardData.files[0];
+                
+                if (!dataChannel || dataChannel.readyState !== 'open') {
+                    addSystemMessage('❌ Connect to a peer before sharing files');
+                    return;
+                }
+
+                if (!isFileSizeManageable(file.size)) {
+                    return;
+                }
+
+                addSystemMessage(`📎 Processing pasted file: ${file.name}`);
+                
+                // Create a new FileList and trigger file upload
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+                
+            } else if (isMessageInput && e.clipboardData) {
+                // Handle text paste manually to preserve newlines
+                e.preventDefault();
+                
+                // Ensure messageInput has focus
+                if (document.activeElement !== messageInput && !messageInput.contains(document.activeElement)) {
+                    messageInput.focus();
+                }
+                
+                const selection = window.getSelection();
+                if (selection.rangeCount === 0) {
+                    // Create a range at the end if no selection
+                    const range = document.createRange();
+                    range.selectNodeContents(messageInput);
+                    range.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+                
+                const range = selection.getRangeAt(0);
+                const text = e.clipboardData.getData('text/plain');
+                
+                if (text) {
+                    // Delete selected content if any
+                    range.deleteContents();
+                    
+                    // Split text by newlines and create text nodes for each line
+                    // This preserves newlines in contenteditable
+                    const lines = text.split('\n');
+                    const fragment = document.createDocumentFragment();
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        const textNode = document.createTextNode(lines[i]);
+                        fragment.appendChild(textNode);
+                        
+                        // Add line break after each line except the last
+                        if (i < lines.length - 1) {
+                            const br = document.createElement('br');
+                            fragment.appendChild(br);
+                        }
+                    }
+                    
+                    // Get the last node before insertion (fragment becomes empty after insertion)
+                    const lastNode = fragment.lastChild;
+                    
+                    // Insert all nodes at once
+                    range.insertNode(fragment);
+                    
+                    // Position cursor after the pasted content
+                    if (lastNode) {
+                        range.setStartAfter(lastNode);
+                        range.collapse(true);
+                    } else {
+                        range.collapse(false);
+                    }
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        });
+
+        // Drag and drop file upload functionality
+        const dragOverlay = document.getElementById('dragOverlay');
+        let dragCounter = 0;
+
+        // Prevent default drag behaviors on the entire document
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Handle drag enter
+        document.addEventListener('dragenter', (e) => {
+            // Only show drag overlay if dragging files
+            if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+                dragCounter++;
+                dragOverlay.classList.add('show');
+            }
+        });
+
+        // Handle drag leave
+        document.addEventListener('dragleave', (e) => {
+            dragCounter--;
+            if (dragCounter === 0) {
+                dragOverlay.classList.remove('show');
+            }
+        });
+
+        // Handle drop
+        document.addEventListener('drop', async (e) => {
+            dragCounter = 0;
+            dragOverlay.classList.remove('show');
+
+            // Check if we have files and a connection
+            if (!conn || !conn.open) {
+                addSystemMessage('❌ Connect to a peer before sharing files');
+                return;
+            }
+
+            const files = e.dataTransfer.files;
+            if (files.length === 0) {
+                return;
+            }
+
+            // Handle multiple files - process them one by one
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                if (!isFileSizeManageable(file.size)) {
+                    continue;
+                }
+
+                addSystemMessage(`📎 Processing dropped file: ${file.name}`);
+                
+                // Create a new FileList and trigger file upload
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+
+                // Small delay between multiple files to avoid overwhelming the connection
+                if (i < files.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
